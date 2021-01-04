@@ -1,8 +1,8 @@
-# DL_boilerplate
-A boilerplate to get started with any Deep Learning project (Vision)
+# RhythmNet
+A reproduction of the RhythmNet model
 
 #### Dataset:
-MNIST dataset downloaded using torchvision
+VIPL-HR dataset
 
 ## Experiments
 Shared parameters:
