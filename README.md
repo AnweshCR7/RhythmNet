@@ -1,5 +1,6 @@
 # RhythmNet
 A reproduction of the RhythmNet model
+Paper link: arxiv.org/abs/1910.11515
 
 #### Dataset:
 VIPL-HR dataset
