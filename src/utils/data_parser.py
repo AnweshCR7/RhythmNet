@@ -67,7 +67,7 @@ def get_haarcascade():
 
 
 def get_spatio_temporal_map():
-    video_files = glob.glob(config.FACE_DATA_DIR + '*avi')
+    video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
     for file in tqdm(video_files):
         maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
         for index in range(10):
@@ -77,7 +77,13 @@ def get_spatio_temporal_map():
                 output_shape=(125, 125), slice_index=index, clip_size=config.CLIP_SIZE)
 
         file_name = file.split('/')[-1].split('.')[0]
-        np.save(f"{config.ST_MAPS_PATH}{file_name}.npy", maps)
+        folder_name = file.split('/')[-2]
+        save_path = os.path.join(config.ST_MAPS_PATH, folder_name)
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+        save_path = os.path.join(save_path, f"{file_name}.npy")
+        # np.save(f"{config.ST_MAPS_PATH}{file_name}.npy", maps)
+        np.save(save_path, maps)
     # return maps
 
 
@@ -104,7 +110,7 @@ def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
     # frame counter is our zero indexed counter for monitoring clip_size
     frame_counter = 0
     while cap.isOpened():
-        curr_frame_id = cap.get(1)  # current frame number
+        curr_frame_id = int(cap.get(1))  # current frame number
         ret, frame = cap.read()
 
         if start_frame <= curr_frame_id < end_frame:
@@ -114,7 +120,7 @@ def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
             if len(faces) is not 0:
                 (x, y, w, d) = faces[0]
             else:
-                continue
+                (x, y, w, d) = (308, 189, 217, 217)
             # overlay rectangle as per detected face.
             # cv2.rectangle(frame, (x, y), (x + w, y + d), (255, 255, 255), 2)
             frame_cropped = frame[y:(y + d), x:(x + w)]
