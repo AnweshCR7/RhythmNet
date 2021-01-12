@@ -8,8 +8,8 @@ def train_fn(model, data_loader, optimizer, loss_fn, save_model=False):
     model.train()
     fin_loss = 0
     loss = 0.0
-    tk_iterator = tqdm(data_loader, total=len(data_loader))
-    for data in tk_iterator:
+    # tk_iterator = tqdm(data_loader, total=len(data_loader))
+    for data in data_loader:
         # an item of the data is available as a dictionary
         for (key, value) in data.items():
             data[key] = value.to(config.DEVICE)
@@ -17,7 +17,7 @@ def train_fn(model, data_loader, optimizer, loss_fn, save_model=False):
         optimizer.zero_grad()
         with torch.set_grad_enabled(True):
             out = model(**data)
-            # preds = out.squeeze(1).squeeze(1)
+            # loss = loss_fn(out.squeeze(1), data["target"])
             loss = loss_fn(out, data["target"])
             loss.backward()
             optimizer.step()
@@ -35,8 +35,8 @@ def eval_fn(model, data_loader, loss_fn):
     fin_loss = 0
     fin_preds = []
     with torch.no_grad():
-        tk = tqdm(data_loader, total=len(data_loader))
-        for data in tk:
+        # tk = tqdm(data_loader, total=len(data_loader))
+        for data in data_loader:
             for key, value in data.items():
                 data[key] = value.to(config.DEVICE)
 

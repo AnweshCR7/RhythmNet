@@ -6,11 +6,13 @@ import pandas as pd
 from pprint import pprint
 from torchvision import datasets, transforms
 import torch.nn as nn
+from tqdm import tqdm
 from sklearn import model_selection
 from sklearn import metrics
 import engine
 import config
 from utils.dataset import DataLoaderRhythmNet
+from utils.plot_scripts import plot_train_test_curves
 from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_checkpoint
 from models.simpleCNN import SimpleCNN
 from models.lenet import LeNet
@@ -18,8 +20,6 @@ from models.rhythmNet import RhythmNet
 
 
 def run_training():
-    # A simple transform which we will apply to the MNIST images
-    # simple_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (1.0,))])
 
     # check path to checkpoint directory
     if config.CHECKPOINT_PATH:
@@ -60,13 +60,14 @@ def run_training():
     # --------------------------------------
 
     testset = trainset = None
-    videos = glob.glob(config.DATA_DIR + '*.avi')
+    videos = glob.glob(config.FACE_DATA_DIR + '*.avi')
     st_maps = glob.glob(config.ST_MAPS_PATH + '*.npy')
 
     # Read from a pre-made csv file that contains data divided into folds for cross validation
     folds_df = pd.read_csv(config.SAVE_CSV_PATH)
 
     # Loop for enumerating through folds.
+    print(f"Details: {len(folds_df['iteration'].unique())} fold training for {config.EPOCHS} Epochs (each video)")
     for k in folds_df['iteration'].unique():
         # Filter DF
         video_files_test = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'V')]
@@ -80,8 +81,8 @@ def run_training():
 
         train_loss_data = []
         for idx, video_file_path in enumerate(video_files_train):
-            print(f"Training {idx + 1}/{len(video_files_train)} video files")
-            print(f"Reading Current File: {video_file_path}")
+            print(f"Training {idx + 1}/{len(video_files_train)} video files in current Fold: {k}")
+            # print(f"Reading Current File: {video_file_path}")
             train_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.clip_size)
 
             train_loader = torch.utils.data.DataLoader(
@@ -90,7 +91,7 @@ def run_training():
                 num_workers=config.NUM_WORKERS,
                 shuffle=False
             )
-            print('\nTrainLoader constructed successfully!')
+            # print('\nTrainLoader constructed successfully!')
 
             # Code to use multiple GPUs (if available)
             if torch.cuda.device_count() > 1:
@@ -109,21 +110,22 @@ def run_training():
             # -----------------------------
             # Start training
             # -----------------------------
-            print(f"Starting training for {config.EPOCHS} Epochs")
 
             train_loss_data_per_epoch = []
-            train_loss = 0.0
-            for epoch in range(config.EPOCHS):
+            # train_loss = 0.0
+            for epoch in tqdm(range(config.EPOCHS), leave=True, position=0):
                 # training
                 train_loss = engine.train_fn(model, train_loader, optimizer, loss_fn, save_model=True)
 
-                print(f"\n[Epoch: {epoch + 1}/{config.EPOCHS} ",
-                      "Training Loss: {:.3f} ".format(train_loss))
+                # print(f"\n[Epoch: {epoch + 1}/{config.EPOCHS} ",
+                #       "Training Loss: {:.3f} ".format(train_loss))
 
                 train_loss_data_per_epoch.append(train_loss)
 
-            save_model_checkpoint(model, optimizer, loss, config.CHECKPOINT_PATH)
-            train_loss_data.append((np.mean(train_loss_data_per_epoch)))
+            mean_loss = np.mean(train_loss_data_per_epoch)
+            train_loss_data.append(mean_loss)
+            print(f"Avg Training Loss: {np.mean(mean_loss)} for {config.EPOCHS} epochs")
+            save_model_checkpoint(model, optimizer, mean_loss, config.CHECKPOINT_PATH)
 
         test_loss_data = []
         rmse_hr = []
@@ -158,18 +160,18 @@ def run_training():
 
             test_loss_data_per_epoch = []
             eval_loss = 0.0
-            for epoch in range(config.EPOCHS):
+            for epoch in tqdm(range(config.EPOCHS), leave=True, position=0):
                 # validation
                 eval_preds, eval_loss = engine.eval_fn(model, test_loader, loss_fn)
 
-                print(f"Epoch {epoch} => Val Loss: {eval_loss}")
+                # print(f"Epoch {epoch} => Val Loss: {eval_loss}")
 
                 test_loss_data_per_epoch.append(eval_loss)
 
             test_loss_data.append((np.mean(test_loss_data_per_epoch)))
 
-        # print(train_dataset[0])
-        # plot_loss(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH)
+            print(f"Avg Validation Loss: {np.mean(test_loss_data_per_epoch)} for {config.EPOCHS} epochs")
+        plot_train_test_curves(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH, fold_tag=k)
         print("done")
 
 

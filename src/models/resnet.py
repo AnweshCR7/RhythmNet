@@ -95,10 +95,13 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = nn.AvgPool2d(7)
+        # Average pooling of 10x1 (which is the image dim after the last layer)
+        self.avgpool = nn.AvgPool2d((10, 1))
         # self.fc = nn.Linear(512 * block.expansion, num_classes)
         # This seems forced atm
-        self.fc = nn.Linear(5120, num_classes)
+        # 512*batch_size
+        self.fc = nn.Linear(512, num_classes)
+        # self.softmax = nn.LogSoftmax(dim=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -136,9 +139,11 @@ class ResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
-        # x = self.avgpool(x)
+        x = self.avgpool(x)
         x = x.view(x.size(0), -1)
+        # x = x.flatten()
         x = self.fc(x)
+        # x = self.softmax(x)
 
         return x
 
@@ -158,8 +163,9 @@ def resnet18(pretrained=False, **kwargs):
 if __name__ == '__main__':
 
     model = resnet18(pretrained=False)
-    img = torch.rand(10, 3, 300, 25)
+    img = torch.rand(10, 3, 300, 25)*255
     # target = torch.randint(1, 20, (5, 5))
+    print(model)
     x = model(img)
     rnn = nn.GRU(input_size=x.shape[1], hidden_size=1)
     output, h_n = rnn(x.unsqueeze(1))

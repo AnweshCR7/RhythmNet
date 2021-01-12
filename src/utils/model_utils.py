@@ -31,7 +31,7 @@ def save_model_checkpoint(model, optimizer, loss, checkpoint_path):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
-    }, os.path.join(checkpoint_path,save_filename))
+    }, os.path.join(checkpoint_path, save_filename))
     print('Saved!')
 
 

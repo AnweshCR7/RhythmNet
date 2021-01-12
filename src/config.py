@@ -7,16 +7,17 @@
 # EPOCHS = 10
 haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
 # Need to change this name (check for occurrences)
-DATA_DIR = "../data/face_video/"
+FACE_DATA_DIR = "../data/face_video/"
 TARGET_SIGNAL_DIR = "../data/data_preprocessed/"
 SAVE_CSV_PATH = "kfold.csv"
 ST_MAPS_PATH = "../data/st_maps/"
+CLIP_SIZE = 300
 CHECKPOINT_PATH = "../checkpoint"
 DATA_PATH = "../data/"
 PLOT_PATH = "../plots"
 BATCH_SIZE = 10
-EPOCHS = 2
-lr = 1e-4
+EPOCHS = 20
+lr = 1e-3
 clip_size = 300
 IMAGE_WIDTH = 300
 IMAGE_HEIGHT = 75

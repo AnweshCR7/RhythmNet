@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 # used for accessing url to download files
 import urllib.request as urlreq
 from sklearn import model_selection
+from sklearn import preprocessing
 # download requisite certificates
 import ssl;
 
@@ -66,27 +67,32 @@ def get_haarcascade():
 
 
 def get_spatio_temporal_map():
-    maps = np.zeros((10, 300, 25, 3))
-    for index in range(1):
-        # print(index)
-        maps[index, :, :, :] = preprocess_video_to_frame(
-            video_path="/Users/anweshcr7/github/RhythmNet/data/face_video/s01_trial01.avi", time_depth=300,
-            output_shape=(125, 125), index=index, clip_size=300)
+    video_files = glob.glob(config.FACE_DATA_DIR + '*avi')
+    for file in tqdm(video_files):
+        maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
+        for index in range(10):
+            # print(index)
+            maps[index, :, :, :] = preprocess_video_to_frame(
+                video_path=file,
+                output_shape=(125, 125), slice_index=index, clip_size=config.CLIP_SIZE)
 
-    # np.save('sp_maps.npy', maps)
-    return maps
+        file_name = file.split('/')[-1].split('.')[0]
+        np.save(f"{config.ST_MAPS_PATH}{file_name}.npy", maps)
+    # return maps
 
 
-def preprocess_video_to_frame(video_path, time_depth, output_shape, index, clip_size):
+def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
     cap = cv2.VideoCapture(video_path)
     frameRate = cap.get(5)  # frame rate
-
-    frame_count = 0
+    min_max_scaler = preprocessing.MinMaxScaler()
     # Initialize frames with zeros
-    frames = np.zeros((time_depth, output_shape[0], output_shape[1], 3))
-    start_frame = index * clip_size
+    frames = np.zeros((clip_size, output_shape[0], output_shape[1], 3))
+    start_frame = slice_index * clip_size
+
     end_frame = start_frame + clip_size
     detector = get_haarcascade()
+
+    # 25 needs to be a variable
     spatio_temporal_map = np.zeros((clip_size, 25, 3))
 
     '''
@@ -95,57 +101,72 @@ def preprocess_video_to_frame(video_path, time_depth, output_shape, index, clip_
        Step 2: Crop the frame based on the face co-ordinates (we need to do 160%)
        Step 3: Downsample the face cropped frame to output_shape = 36x36
    '''
-
+    # frame counter is our zero indexed counter for monitoring clip_size
+    frame_counter = 0
     while cap.isOpened():
-        frameId = cap.get(1)  # current frame number
+        curr_frame_id = cap.get(1)  # current frame number
         ret, frame = cap.read()
 
-        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        faces = detector.detectMultiScale(frame)
-        # We expect only one face
-        if len(faces) is not 0:
-            (x, y, w, d) = faces[0]
-        else:
-            continue
-        # overlay rectangle as per detected face.
-        # cv2.rectangle(frame, (x, y), (x + w, y + d), (255, 255, 255), 2)
-        frame_cropped = frame[y:(y + d), x:(x + w)]
-        frame_resized = np.zeros((output_shape[0], output_shape[1], 3))
+        if start_frame <= curr_frame_id < end_frame:
+            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            faces = detector.detectMultiScale(frame)
+            # We expect only one face
+            if len(faces) is not 0:
+                (x, y, w, d) = faces[0]
+            else:
+                continue
+            # overlay rectangle as per detected face.
+            # cv2.rectangle(frame, (x, y), (x + w, y + d), (255, 255, 255), 2)
+            frame_cropped = frame[y:(y + d), x:(x + w)]
+            frame_resized = np.zeros((output_shape[0], output_shape[1], 3))
 
-        if not ret:
-            break
-        # considering a 30 second clip: FPS x time => 50 * 30 = 1500 frames
-        if start_frame < frameId < end_frame:
+            if not ret:
+                break
+
             window_name = 'image'
             # Downsample to 36x36 using bicubic interpolation and rename cropped frame to frame
-            # try:
-            frame_resized = cv2.resize(frame_cropped, output_shape, interpolation=cv2.INTER_CUBIC)
-            frame_resized = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2YUV)
+            try:
+                frame_resized = cv2.resize(frame_cropped, output_shape, interpolation=cv2.INTER_CUBIC)
+                frame_resized = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2YUV)
 
-            # except:
-            #     print('\n--------- ERROR! -----------\nUsual cv empty error')
-            #     print(f'Shape of img1: {frame.shape}')
-            #     # print(f'bbox: {bbox}')
-            #     print(f'This is at idx: {frameId}')
-            #     exit(666)
+            except:
+                print('\n--------- ERROR! -----------\nUsual cv empty error')
+                print(f'Shape of img1: {frame.shape}')
+                # print(f'bbox: {bbox}')
+                print(f'This is at idx: {curr_frame_id}')
+                exit(666)
 
             # filename = f"framess{frame_count}.jpg"
             # plot_image(frame_resized)
             roi_blocks = chunkify(frame_resized)
             for block_idx, block in enumerate(roi_blocks):
                 # plot_image(block)
-                # start from zero index
-                # block_idx -= 1
                 avg_pixels = cv2.mean(block)
-                spatio_temporal_map[frame_count, block_idx, 0] = avg_pixels[0]
-                spatio_temporal_map[frame_count, block_idx, 1] = avg_pixels[1]
-                spatio_temporal_map[frame_count, block_idx, 2] = avg_pixels[2]
-            frames[frame_count, :, :, :] = frame_resized
-            frame_count += 1
+                spatio_temporal_map[frame_counter, block_idx, 0] = avg_pixels[0]
+                spatio_temporal_map[frame_counter, block_idx, 1] = avg_pixels[1]
+                spatio_temporal_map[frame_counter, block_idx, 2] = avg_pixels[2]
 
-        # might not be necessary
-        if frame_count == clip_size - 1:
+            frames[frame_counter, :, :, :] = frame_resized
+            frame_counter += 1
+        else:
+            # ignore frames outside the clip
+            pass
+
+        # Necessary to break the outer while
+        # Breaks when we have read the clip b/w start_frame till end_frame
+        if frame_counter == (end_frame-start_frame):
             break
+
+    for block_idx in range(spatio_temporal_map.shape[1]):
+        # Not sure about uint8
+        fn_scale_0_255 = lambda x: (x * 255.0).astype('uint8')
+        scaled_channel_0 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 0].reshape(-1, 1))
+        spatio_temporal_map[:, block_idx, 0] = fn_scale_0_255(scaled_channel_0.flatten())
+        scaled_channel_1 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 1].reshape(-1, 1))
+        spatio_temporal_map[:, block_idx, 1] = fn_scale_0_255(scaled_channel_1.flatten())
+        scaled_channel_2 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 2].reshape(-1, 1))
+        spatio_temporal_map[:, block_idx, 2] = fn_scale_0_255(scaled_channel_2.flatten())
+
 
     cap.release()
     return spatio_temporal_map
@@ -221,6 +242,6 @@ if __name__ == '__main__':
     #         output_shape=(125, 125), index=index, clip_size=300)
     #
     # np.save('sp_maps.npy', maps)
-    # data = get_spatio_temporal_map()
-    make_csv()
+    data = get_spatio_temporal_map()
+    # make_csv()
     print('done')
