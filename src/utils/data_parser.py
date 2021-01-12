@@ -14,6 +14,11 @@ import matplotlib.pyplot as plt
 import urllib.request as urlreq
 from sklearn import model_selection
 from sklearn import preprocessing
+import multiprocessing
+from itertools import product
+from tqdm.contrib.concurrent import process_map
+from concurrent.futures import ProcessPoolExecutor
+
 # download requisite certificates
 import ssl;
 
@@ -64,6 +69,34 @@ def get_haarcascade():
         print("xml file downloaded")
 
     return cv2.CascadeClassifier(haarcascade_filename)
+
+
+def get_spatio_temporal_map_threaded(file):
+    maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
+    for index in range(10):
+        # print(index)
+        maps[index, :, :, :] = preprocess_video_to_frame(
+            video_path=file,
+            output_shape=(125, 125), slice_index=index, clip_size=config.CLIP_SIZE)
+
+    file_name = file.split('/')[-1].split('.')[0]
+    folder_name = file.split('/')[-2]
+    save_path = os.path.join(config.ST_MAPS_PATH, folder_name)
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    save_path = os.path.join(save_path, f"{file_name}.npy")
+    # np.save(f"{config.ST_MAPS_PATH}{file_name}.npy", maps)
+    np.save(save_path, maps)
+    return 1
+
+
+def get_spatio_temporal_map_threaded_wrapper():
+    video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
+
+    with multiprocessing.Pool(processes=4) as pool:
+        results = list(tqdm(pool.starmap_async(get_spatio_temporal_map_threaded, product(video_files[:4])), total=len(video_files)))
+
+    pool.close()
 
 
 def get_spatio_temporal_map():
@@ -248,6 +281,9 @@ if __name__ == '__main__':
     #         output_shape=(125, 125), index=index, clip_size=300)
     #
     # np.save('sp_maps.npy', maps)
-    data = get_spatio_temporal_map()
+    # get_spatio_temporal_map()
+    get_spatio_temporal_map_threaded_wrapper()
+    # video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
+    # r = list(process_map(get_spatio_temporal_map_threaded, video_files[:2], max_workers=1))
     # make_csv()
     print('done')
