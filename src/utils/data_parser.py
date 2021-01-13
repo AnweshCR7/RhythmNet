@@ -14,7 +14,9 @@ import matplotlib.pyplot as plt
 import urllib.request as urlreq
 from sklearn import model_selection
 from sklearn import preprocessing
-import multiprocessing
+from multiprocessing import Pool
+from joblib import Parallel, delayed, parallel_backend
+import time
 from itertools import product
 from tqdm.contrib.concurrent import process_map
 from concurrent.futures import ProcessPoolExecutor
@@ -72,8 +74,9 @@ def get_haarcascade():
 
 
 def get_spatio_temporal_map_threaded(file):
+    # print(f"Generating Maps for file: {file}")
     maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
-    for index in range(10):
+    for index in range(2):
         # print(index)
         maps[index, :, :, :] = preprocess_video_to_frame(
             video_path=file,
@@ -93,15 +96,27 @@ def get_spatio_temporal_map_threaded(file):
 def get_spatio_temporal_map_threaded_wrapper():
     video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
 
-    with multiprocessing.Pool(processes=4) as pool:
-        results = list(tqdm(pool.starmap_async(get_spatio_temporal_map_threaded, product(video_files[:4])), total=len(video_files)))
 
-    pool.close()
+    # try:
+    #     pool = Pool(3)  # on 8 processors
+    #     pool.map(get_spatio_temporal_map_threaded, video_files[:4])
+    # finally:  # To make sure processes are closed in the end, even if errors happen
+    #     pool.close()
+    #     pool.join()
+    start = time.time()
+    with parallel_backend("loky", inner_max_num_threads=4):
+        Parallel(n_jobs=4)(delayed(get_spatio_temporal_map_threaded)(file) for file in tqdm(video_files))
+    end = time.time()
+
+    print('{:.4f} s'.format(end - start))
+    # with multiprocessing.Pool(processes=4) as pool:
+    #     results = list(tqdm(pool.starmap_async(get_spatio_temporal_map_threaded, product(video_files[:4])), total=len(video_files)))
 
 
 def get_spatio_temporal_map():
     video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
-    for file in tqdm(video_files):
+    start = time.time()
+    for file in tqdm(video_files[:2]):
         maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
         for index in range(10):
             # print(index)
@@ -117,6 +132,9 @@ def get_spatio_temporal_map():
         save_path = os.path.join(save_path, f"{file_name}.npy")
         # np.save(f"{config.ST_MAPS_PATH}{file_name}.npy", maps)
         np.save(save_path, maps)
+
+    end = time.time()
+    print('{:.4f} s'.format(end - start))
     # return maps
 
 
