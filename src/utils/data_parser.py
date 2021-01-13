@@ -240,7 +240,7 @@ def read_target_data(target_data_path, video_file_name):
     trial_number = int(video_file_name.split('_')[1][-2:])
 
     x = pickle.load(open(os.path.join(os.getcwd(), target_data_path, f"{dat_file_name}.dat"), 'rb'), encoding='latin1')
-    ppg_data = np.array(get_ppg_channel(x["data"][trial_number]))
+    ppg_data = np.array(get_ppg_channel(x["data"][trial_number - 1]))
     # return signal.resample(ppg_data, 3000)
 
     return filter_and_resample_signal(signal_data=ppg_data, resampling_dim=3000)

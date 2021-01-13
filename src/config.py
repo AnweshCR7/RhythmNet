@@ -1,4 +1,5 @@
 # FACE_DATA_DIR = "/content/drive/MyDrive/data/deep_phys/face_videos/"
+# DATA_PATH = "/content/drive/MyDrive/data/rhythmnet/st_maps/"
 # TARGET_SIGNAL_DIR = "/content/drive/MyDrive/data/deep_phys/data_preprocessed/"
 # SAVE_CSV_PATH = "/content/drive/MyDrive/data/rhythmnet/kfold.csv"
 # ST_MAPS_PATH = "/content/drive/MyDrive/data/rhythmnet/st_maps/"
