@@ -263,7 +263,7 @@ def get_hr(signal_data, sampling_rate):
 
 
 def make_csv():
-    video_file_paths = glob.glob(config.ST_MAPS_PATH + "/*.npy")
+    video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")
     video_files = []
     for path in video_file_paths:
         split_by_path = path.split('/')
@@ -300,8 +300,8 @@ if __name__ == '__main__':
     #
     # np.save('sp_maps.npy', maps)
     # get_spatio_temporal_map()
-    get_spatio_temporal_map_threaded_wrapper()
+    # get_spatio_temporal_map_threaded_wrapper()
     # video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
     # r = list(process_map(get_spatio_temporal_map_threaded, video_files[:2], max_workers=1))
-    # make_csv()
+    make_csv()
     print('done')
