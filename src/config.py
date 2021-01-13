@@ -1,24 +1,29 @@
-# DATA_DIR = "/content/drive/MyDrive/data/"
-# CHECKPOINT_PATH = "/content/drive/MyDrive/data/MNIST/checkpoint"
-# PLOT_PATH = "/content/drive/MyDrive/data/MNIST/plots"
-# NUM_WORKERS = 1
+# FACE_DATA_DIR = "/content/drive/MyDrive/data/deep_phys/face_videos/"
+# TARGET_SIGNAL_DIR = "/content/drive/MyDrive/data/deep_phys/data_preprocessed/"
+# SAVE_CSV_PATH = "/content/drive/MyDrive/data/rhythmnet/kfold.csv"
+# ST_MAPS_PATH = "/content/drive/MyDrive/data/rhythmnet/st_maps/"
+# CHECKPOINT_PATH = "/content/drive/MyDrive/data/rhythmnet/checkpoint"
+# PLOT_PATH = "/content/drive/MyDrive/data/rhythmnet/plots"
+# NUM_WORKERS = 2
 # DEVICE = "cuda"
-# BATCH_SIZE = 32
-# EPOCHS = 10
+# BATCH_SIZE = 10
+# EPOCHS = 50
+# lr = 1e-3
+# CLIP_SIZE = 300
+
+
 haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
-# Need to change this name (check for occurrences)
 FACE_DATA_DIR = "../data/face_video/"
 TARGET_SIGNAL_DIR = "../data/data_preprocessed/"
 SAVE_CSV_PATH = "kfold.csv"
 ST_MAPS_PATH = "../data/st_maps/"
-CLIP_SIZE = 300
 CHECKPOINT_PATH = "../checkpoint"
 DATA_PATH = "../data/"
 PLOT_PATH = "../plots"
 BATCH_SIZE = 10
 EPOCHS = 20
+CLIP_SIZE = 300
 lr = 1e-3
-clip_size = 300
 IMAGE_WIDTH = 300
 IMAGE_HEIGHT = 75
 NUM_WORKERS = 0

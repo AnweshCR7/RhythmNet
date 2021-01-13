@@ -83,7 +83,7 @@ def run_training():
         for idx, video_file_path in enumerate(video_files_train):
             print(f"Training {idx + 1}/{len(video_files_train)} video files in current Fold: {k}")
             # print(f"Reading Current File: {video_file_path}")
-            train_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.clip_size)
+            train_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.CLIP_SIZE)
 
             train_loader = torch.utils.data.DataLoader(
                 dataset=train_set,
@@ -132,7 +132,7 @@ def run_training():
         for idx, video_file_path in enumerate(video_files_test):
             print(f"Training {idx + 1}/{len(video_files_test)} video files")
             print(f"Reading Current File: {video_file_path}")
-            test_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.clip_size)
+            test_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.CLIP_SIZE)
             test_loader = torch.utils.data.DataLoader(
                 dataset=test_set,
                 batch_size=None,
