@@ -258,7 +258,7 @@ def filter_and_resample_signal(signal_data, resampling_dim):
 
 def get_hr(signal_data, sampling_rate):
     # High precision gives an error in signal after re-sampling
-    wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate, high_precision=True, clean_rr=True)
+    # wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate, high_precision=True, clean_rr=True)
     wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate)
 
     return [m_data["bpm"]]
