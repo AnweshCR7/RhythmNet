@@ -17,12 +17,12 @@
 
 # FACE_DATA_DIR = "/content/drive/MyDrive/data/deep_phys/face_videos/"
 HOME_DIR = "/tudelft.net/staff-bulk/ewi/insy/VisionLab/students/amarwade/"
-DATA_PATH = HOME_DIR + "rhythmnet/data/st_maps/"
-TARGET_SIGNAL_DIR = HOME_DIR + "rhythmnet/data/data_preprocessed/"
-SAVE_CSV_PATH = HOME_DIR + "rhythmnet/kfold.csv"
-ST_MAPS_PATH = HOME_DIR + "rhythmnet/data/st_maps/"
-CHECKPOINT_PATH = HOME_DIR + "rhythmnet/checkpoint"
-PLOT_PATH = HOME_DIR + "rhythmnet/plots"
+DATA_PATH = HOME_DIR + "data/DEAP/st_maps/"
+TARGET_SIGNAL_DIR = HOME_DIR + "data/DEAP/data_preprocessed/"
+SAVE_CSV_PATH = HOME_DIR + "RhythmNet/kfold.csv"
+ST_MAPS_PATH = HOME_DIR + "data/DEAP/st_maps/"
+CHECKPOINT_PATH = HOME_DIR + "checkpoints/RhythmNet"
+PLOT_PATH = HOME_DIR + "plots/RhythmNet"
 NUM_WORKERS = 2
 DEVICE = "cuda"
 BATCH_SIZE = 10
