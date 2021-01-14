@@ -1,6 +1,5 @@
 import cv2
 import os
-import torch
 import pickle
 import glob
 import numpy as np
@@ -14,12 +13,8 @@ import matplotlib.pyplot as plt
 import urllib.request as urlreq
 from sklearn import model_selection
 from sklearn import preprocessing
-from multiprocessing import Pool
 from joblib import Parallel, delayed, parallel_backend
 import time
-from itertools import product
-from tqdm.contrib.concurrent import process_map
-from concurrent.futures import ProcessPoolExecutor
 
 # download requisite certificates
 import ssl;
@@ -265,14 +260,14 @@ def get_hr(signal_data, sampling_rate):
 
 
 def make_csv():
-    video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")
+    video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")[:6]
     video_files = []
     for path in video_file_paths:
         split_by_path = path.split('/')
         video_file = os.path.join(split_by_path[-2], split_by_path[-1])
         video_files.append(video_file)
 
-    num_folds = 5
+    num_folds = 2
     kf = model_selection.KFold(n_splits=num_folds)
 
     col_names = ['video', 'set', 'iteration']
@@ -305,8 +300,8 @@ if __name__ == '__main__':
     # get_spatio_temporal_map_threaded_wrapper()
     # video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
     # r = list(process_map(get_spatio_temporal_map_threaded, video_files[:2], max_workers=1))
-    signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial04")
-    get_hr(signal, 50)
+    # signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial04")
+    # get_hr(signal, 50)
 
-    # make_csv()
+    make_csv()
     print('done')

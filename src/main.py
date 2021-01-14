@@ -3,12 +3,8 @@ import glob
 import torch
 import numpy as np
 import pandas as pd
-from pprint import pprint
-from torchvision import datasets, transforms
 import torch.nn as nn
 from tqdm import tqdm
-from sklearn import model_selection
-from sklearn import metrics
 import engine
 import config
 from utils.dataset import DataLoaderRhythmNet
