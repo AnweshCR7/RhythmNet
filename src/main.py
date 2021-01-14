@@ -74,9 +74,9 @@ def run_training():
         video_files_train = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'T')]
 
         # Get paths from filtered DF
-        video_files_test = [os.path.join(config.DATA_PATH, video_path) for video_path in
+        video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
                             video_files_test["video"].values]
-        video_files_train = [os.path.join(config.DATA_PATH, video_path) for video_path in
+        video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
                              video_files_train["video"].values]
 
         train_loss_data = []

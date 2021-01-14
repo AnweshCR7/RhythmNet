@@ -257,7 +257,9 @@ def filter_and_resample_signal(signal_data, resampling_dim):
 
 
 def get_hr(signal_data, sampling_rate):
+    # High precision gives an error in signal after re-sampling
     wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate, high_precision=True, clean_rr=True)
+    wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate)
 
     return [m_data["bpm"]]
 
@@ -270,7 +272,7 @@ def make_csv():
         video_file = os.path.join(split_by_path[-2], split_by_path[-1])
         video_files.append(video_file)
 
-    num_folds = 2
+    num_folds = 5
     kf = model_selection.KFold(n_splits=num_folds)
 
     col_names = ['video', 'set', 'iteration']
@@ -303,5 +305,8 @@ if __name__ == '__main__':
     # get_spatio_temporal_map_threaded_wrapper()
     # video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
     # r = list(process_map(get_spatio_temporal_map_threaded, video_files[:2], max_workers=1))
-    make_csv()
+    signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial04")
+    get_hr(signal, 50)
+
+    # make_csv()
     print('done')
