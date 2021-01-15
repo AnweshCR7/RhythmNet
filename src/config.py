@@ -15,7 +15,7 @@
 
 haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
 FACE_DATA_DIR = "../data/face_video/"
-TARGET_SIGNAL_DIR = "../data/data_preprocessed/"
+TARGET_SIGNAL_DIR = "/Users/anweshcr7/thesis/src/data/data_preprocessed/"
 SAVE_CSV_PATH = "2-fold.csv"
 ST_MAPS_PATH = "../data/st_maps/"
 CHECKPOINT_PATH = "../checkpoint"
