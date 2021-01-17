@@ -1,4 +1,3 @@
-# FOR GOOGLE COLAB
 # FACE_DATA_DIR = "/content/drive/MyDrive/data/deep_phys/face_videos/"
 # DATA_PATH = "/content/drive/MyDrive/data/rhythmnet/st_maps/"
 # TARGET_SIGNAL_DIR = "/content/drive/MyDrive/data/deep_phys/data_preprocessed/"
