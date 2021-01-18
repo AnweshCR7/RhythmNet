@@ -56,7 +56,7 @@ def run_training():
     # --------------------------------------
 
     testset = trainset = None
-    videos = glob.glob(config.FACE_DATA_DIR + '*.avi')
+    # videos = glob.glob(config.FACE_DATA_DIR + '*.avi')
     st_maps = glob.glob(config.ST_MAPS_PATH + '*.npy')
 
     # Read from a pre-made csv file that contains data divided into folds for cross validation
