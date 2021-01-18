@@ -4,7 +4,7 @@ import pickle
 import glob
 import numpy as np
 import pandas as pd
-import src.config as config
+import config as config
 from scipy import signal
 import heartpy as hp
 from tqdm import tqdm
