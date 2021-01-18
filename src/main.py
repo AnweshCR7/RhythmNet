@@ -8,7 +8,7 @@ from tqdm import tqdm
 import engine
 import config
 from utils.dataset import DataLoaderRhythmNet
-from utils.plot_scripts import plot_train_test_curves
+from utils.plot_scripts import plot_train_test_curves, bland_altman_plot
 from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_checkpoint
 from models.simpleCNN import SimpleCNN
 from models.lenet import LeNet
@@ -77,6 +77,8 @@ def run_training():
 
         train_loss_data = []
         for idx, video_file_path in enumerate(video_files_train):
+            if k == 1:
+                break
             print(f"Training {idx + 1}/{len(video_files_train)} video files in current Fold: {k}")
             # print(f"Reading Current File: {video_file_path}")
             train_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.CLIP_SIZE)
@@ -128,7 +130,8 @@ def run_training():
             save_model_checkpoint(model, optimizer, mean_loss, config.CHECKPOINT_PATH)
 
         test_loss_data = []
-        rmse_hr = []
+        truth_hr_list = []
+        estimated_hr_list = []
         for idx, video_file_path in enumerate(video_files_test):
             print(f"Validating {idx + 1}/{len(video_files_test)} video files")
             # print(f"Reading Current File: {video_file_path}")
@@ -166,16 +169,20 @@ def run_training():
             eval_loss = 0.0
             for epoch in tqdm(range(config.EPOCHS), leave=True, position=0):
                 # validation
-                eval_preds, eval_loss = engine.eval_fn(model, test_loader, loss_fn)
+                target, predicted, eval_loss = engine.eval_fn(model, test_loader, loss_fn)
 
                 # print(f"Epoch {epoch} => Val Loss: {eval_loss}")
 
                 test_loss_data_per_epoch.append(eval_loss)
+                # hr_state_item = {"target": target, "predicted": predicted}
+                truth_hr_list.append(target)
+                estimated_hr_list.append(predicted)
 
             test_loss_data.append((np.mean(test_loss_data_per_epoch)))
 
             print(f"Avg Validation Loss: {np.mean(test_loss_data_per_epoch)} for {config.EPOCHS} epochs")
         plot_train_test_curves(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH, fold_tag=k)
+        bland_altman_plot(truth_hr_list, estimated_hr_list, plot_path=config.PLOT_PATH)
         print("done")
 
 

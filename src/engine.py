@@ -45,5 +45,5 @@ def eval_fn(model, data_loader, loss_fn):
                 loss = loss_fn(out, data["target"])
                 # _, batch_preds = torch.max(out.data, 1)
             fin_loss += loss.item()
-            # fin_preds.append(batch_preds)
-        return fin_preds, fin_loss / len(data_loader)
+            fin_preds.append(out.item())
+        return data["target"].item(), out.item(), fin_loss / len(data_loader)
