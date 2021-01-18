@@ -97,7 +97,11 @@ def run_training():
             # --------------------------------------
             # Load checkpointed model (if  present)
             # --------------------------------------
-            model, optimizer, loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path)
+            if config.DEVICE == "cpu":
+                load_on_cpu = True
+            else:
+                load_on_cpu = False
+            model, optimizer, loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
             if checkpoint_flag:
                 print(f"Checkpoint Found! Loading from checkpoint :: LOSS={loss}")
             else:
@@ -126,8 +130,8 @@ def run_training():
         test_loss_data = []
         rmse_hr = []
         for idx, video_file_path in enumerate(video_files_test):
-            print(f"Training {idx + 1}/{len(video_files_test)} video files")
-            print(f"Reading Current File: {video_file_path}")
+            print(f"Validating {idx + 1}/{len(video_files_test)} video files")
+            # print(f"Reading Current File: {video_file_path}")
             test_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.CLIP_SIZE)
             test_loader = torch.utils.data.DataLoader(
                 dataset=test_set,
@@ -136,7 +140,7 @@ def run_training():
                 shuffle=False
             )
 
-            print('\nTestLoader constructed successfully!')
+            # print('\nTestLoader constructed successfully!')
 
             # Code to use multiple GPUs (if available)
             if torch.cuda.device_count() > 1:
@@ -146,7 +150,11 @@ def run_training():
             # --------------------------------------
             # Load checkpointed model (if  present)
             # --------------------------------------
-            model, optimizer, loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path)
+            if config.DEVICE == "cpu":
+                load_on_cpu = True
+            else:
+                load_on_cpu = False
+            model, optimizer, loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
 
             # -----------------------------
             # Start Validation
