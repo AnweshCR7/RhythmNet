@@ -7,8 +7,9 @@ import torch.nn as nn
 from tqdm import tqdm
 import engine
 import config
+from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import DataLoaderRhythmNet
-from utils.plot_scripts import plot_train_test_curves, bland_altman_plot
+from utils.plot_scripts import plot_train_test_curves, bland_altman_plot, gt_vs_est, create_plot_for_tensorboard
 from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_checkpoint
 from models.simpleCNN import SimpleCNN
 from models.lenet import LeNet
@@ -59,6 +60,9 @@ def run_training():
     # videos = glob.glob(config.FACE_DATA_DIR + '*.avi')
     st_maps = glob.glob(config.ST_MAPS_PATH + '*.npy')
 
+    # Initialize SummaryWriter object
+    writer = SummaryWriter()
+
     # Read from a pre-made csv file that contains data divided into folds for cross validation
     folds_df = pd.read_csv(config.SAVE_CSV_PATH)
 
@@ -103,9 +107,9 @@ def run_training():
                 load_on_cpu = True
             else:
                 load_on_cpu = False
-            model, optimizer, loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
+            model, optimizer, loaded_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
             if checkpoint_flag:
-                print(f"Checkpoint Found! Loading from checkpoint :: LOSS={loss}")
+                print(f"Checkpoint Found! Loading from checkpoint :: LOSS={loaded_loss}")
             else:
                 print("Checkpoint Not Found! Training from beginning")
 
@@ -125,9 +129,15 @@ def run_training():
                 train_loss_data_per_epoch.append(train_loss)
 
             mean_loss = np.mean(train_loss_data_per_epoch)
+            # Save the mean_loss value for each video instance to the writer
+            writer.add_scalar("Loss/train", mean_loss, idx)
             train_loss_data.append(mean_loss)
             print(f"Avg Training Loss: {np.mean(mean_loss)} for {config.EPOCHS} epochs")
+            # Could be used to save only the best model? Not sure if that is a good idea though
+            # if loaded_loss != None and mean_loss < loaded_loss:
             save_model_checkpoint(model, optimizer, mean_loss, config.CHECKPOINT_PATH)
+
+        writer.flush()
 
         test_loss_data = []
         truth_hr_list = []
@@ -167,22 +177,45 @@ def run_training():
 
             test_loss_data_per_epoch = []
             eval_loss = 0.0
+            lowest_error = None
+            best_hr = {"target": 0.0, "predicted": 0.0}
             for epoch in tqdm(range(config.EPOCHS), leave=True, position=0):
                 # validation
                 target, predicted, eval_loss = engine.eval_fn(model, test_loader, loss_fn)
 
                 # print(f"Epoch {epoch} => Val Loss: {eval_loss}")
 
+                # record the hr values only for the lowest absolute difference.
                 test_loss_data_per_epoch.append(eval_loss)
-                # hr_state_item = {"target": target, "predicted": predicted}
-                truth_hr_list.append(target)
-                estimated_hr_list.append(predicted)
+                if lowest_error is None:
+                    lowest_error = float(abs(target - predicted))
+                    best_hr["target"], best_hr["predicted"] = target, predicted
+                elif float(abs(target - predicted)) < lowest_error:
+                    best_hr["target"], best_hr["predicted"] = target, predicted
+                else:
+                    pass
+                # truth_hr_list.append(target)
+                # estimated_hr_list.append(predicted)
 
-            test_loss_data.append((np.mean(test_loss_data_per_epoch)))
+                # writer.add_scalars('gt_vs_est_hr', {'true_hr': target, 'estimated_hr': predicted}, idx)
+
+            truth_hr_list.append(best_hr["target"])
+            estimated_hr_list.append(best_hr["predicted"])
+            ba_plot_image = create_plot_for_tensorboard('bland_altman', truth_hr_list, estimated_hr_list)
+            gtvsest_plot_image = create_plot_for_tensorboard('gt_vs_est', truth_hr_list, estimated_hr_list)
+            mean_loss = np.mean(test_loss_data_per_epoch)
+            # Save the mean_loss value for each video instance to the writer
+            writer.add_image('BA_plot', ba_plot_image, idx)
+            writer.add_image('gtvsest_plot', gtvsest_plot_image, idx)
+            writer.add_scalar("Loss/test", mean_loss, idx)
+            test_loss_data.append(mean_loss)
 
             print(f"Avg Validation Loss: {np.mean(test_loss_data_per_epoch)} for {config.EPOCHS} epochs")
+        writer.flush()
         plot_train_test_curves(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH, fold_tag=k)
+        gt_vs_est(truth_hr_list, estimated_hr_list, plot_path=config.PLOT_PATH)
         bland_altman_plot(truth_hr_list, estimated_hr_list, plot_path=config.PLOT_PATH)
+        writer.close()
         print("done")
 
 
