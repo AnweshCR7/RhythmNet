@@ -230,33 +230,49 @@ def get_ppg_channel(x):
 
 
 def read_target_data(target_data_path, video_file_name):
-    # print(f'reading the PPG signal for video: {video_file_name}')
-    dat_file_name = video_file_name.split('_')[0]
-    trial_number = int(video_file_name.split('_')[1][-2:])
+    signal_data_file_path = os.path.join(target_data_path, f"{video_file_name} PPG.csv")
+    signal_df = pd.read_csv(signal_data_file_path)
 
-    x = pickle.load(open(os.path.join(target_data_path, f"{dat_file_name}.dat"), 'rb'), encoding='latin1')
-    ppg_data = np.array(get_ppg_channel(x["data"][trial_number - 1]))
-    # return signal.resample(ppg_data, 3000)
-
-    return filter_and_resample_signal(signal_data=ppg_data, resampling_dim=3000)
+    # In RhythmNet maybe we don't need to resample. CHECK
+    return filter_and_resample_truth_signal(signal_df, resampling_size=3000)
 
 
-def filter_and_resample_signal(signal_data, resampling_dim):
-    # video sample rate is given to be 128
-    sample_rate = 128
-    filtered = hp.filter_signal(signal_data, [0.7, 2.5], sample_rate=sample_rate,
-                                order=3, filtertype='bandpass')
-    filtered = signal.resample(filtered, resampling_dim)
+def filter_and_resample_truth_signal(signal_df, resampling_size):
+    # Signal should be bandpass filtered to remove noise outside of expected HR frequency range.
+    # But we are using CLEANER_PPG signals which are considered filtered.
+    orignal_sample_rate = hp.get_samplerate_mstimer(signal_df["Time"].values)
 
-    return filtered
+    # filtered = hp.filter_signal(signal_df["Signal"].values, [0.7, 2.5], sample_rate=sample_rate,
+    #                             order=3, filtertype='bandpass')
+    resampled_signal = signal.resample(signal_df["Signal"].values, resampling_size, t=signal_df["Time"].values)
+
+    # we'll need to add resampled[1]
+    return resampled_signal[0], resampled_signal[1]
 
 
-def get_hr(signal_data, sampling_rate):
-    # High precision gives an error in signal after re-sampling
-    # wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate, high_precision=True, clean_rr=True)
-    wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate)
-    # wd_data, m_data = hp.process_segmentwise(signal_data, sample_rate=sampling_rate, segment_width=8)
-    return [m_data["bpm"]]
+def calculate_hr(signal_data, timestamps=None):
+    sampling_rate = 47.63
+    if timestamps is not None:
+        sampling_rate = hp.get_samplerate_mstimer(timestamps)
+        try:
+            wd, m = hp.process(signal_data, sample_rate=sampling_rate, high_precision=True, clean_rr=False)
+            hr_bpm = m["bpm"]
+        except:
+            hr_bpm = 75.0
+        return hr_bpm
+
+    else:
+        # We are working with predicted HR:
+        # need to filter and do other stuff.. lets see
+        signal_data = hp.filter_signal(signal_data, cutoff=[0.7, 2.5], sample_rate=sampling_rate, order=6,
+                                       filtertype='bandpass')
+        try:
+            wd, m = hp.process(signal_data, sample_rate=sampling_rate, high_precision=True, clean_rr=True)
+            hr_bpm = m["bpm"]
+        except:
+            print("BadSignal received (could not be filtered) using def HR value = 75bpm")
+            hr_bpm = 75.0
+        return hr_bpm
 
 
 def make_csv():
@@ -306,13 +322,13 @@ if __name__ == '__main__':
     df = pd.DataFrame(pd.read_csv("/Users/anweshcr7/Downloads/CleanerPPG/DEAP/Cleaned/s05_trial21 PPG.csv"))
     timer = df["Time"].values
     sample_rate = hp.get_samplerate_mstimer(timer)
-    print(get_hr(df["Signal"].values, sample_rate))
+    print(calculate_hr(df["Signal"].values, sample_rate))
 
     # filtered_signal = hp.filter_signal(df["Signal"].values, cutoff=[0.7, 2.5], sample_rate=sample_rate, order=3, filtertype='bandpass')
     resampled = signal.resample(df["Signal"].values, 3000, df["Time"].values)
     resampled_sample_rate = hp.get_samplerate_mstimer(resampled[1])
     #
-    print(get_hr(resampled[0], resampled_sample_rate))
+    print(calculate_hr(resampled[0], resampled_sample_rate))
 
     # make_csv()
     print('done')

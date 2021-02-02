@@ -14,6 +14,7 @@ from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_
 from models.simpleCNN import SimpleCNN
 from models.lenet import LeNet
 from models.rhythmNet import RhythmNet
+from loss_fn.rhythmnet_loss import RhythmNetLoss
 
 
 def run_training():
@@ -50,14 +51,10 @@ def run_training():
     # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     #     optimizer, factor=0.8, patience=5, verbose=True
     # )
-    loss_fn = nn.L1Loss()
-
-    # --------------------------------------
-    # Build Dataloaders
-    # --------------------------------------
+    # loss_fn = nn.L1Loss()
+    loss_fn = RhythmNetLoss()
 
     testset = trainset = None
-    # videos = glob.glob(config.FACE_DATA_DIR + '*.avi')
     st_maps = glob.glob(config.ST_MAPS_PATH + '*.npy')
 
     # Initialize SummaryWriter object
@@ -68,7 +65,8 @@ def run_training():
 
     # Loop for enumerating through folds.
     print(f"Details: {len(folds_df['iteration'].unique())} fold training for {config.EPOCHS} Epochs (each video)")
-    for k in folds_df['iteration'].unique():
+    # for k in folds_df['iteration'].unique():
+    for k in [1]:
         # Filter DF
         video_files_test = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'V')]
         video_files_train = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'T')]
@@ -79,142 +77,126 @@ def run_training():
         video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
                              video_files_train["video"].values]
 
-        train_loss_data = []
-        for idx, video_file_path in enumerate(video_files_train):
+        # print(f"Reading Current File: {video_file_path}")
+        train_set = DataLoaderRhythmNet(st_maps_path=video_files_train, target_signal_path=config.TARGET_SIGNAL_DIR)
+
+        # --------------------------------------
+        # Build Dataloaders
+        # --------------------------------------
+
+        train_loader = torch.utils.data.DataLoader(
+            dataset=train_set,
+            batch_size=None,
+            num_workers=config.NUM_WORKERS,
+            shuffle=False
+        )
+        print('\nTrain DataLoader constructed successfully!')
+
+        test_set = DataLoaderRhythmNet(st_maps_path=video_files_test, target_signal_path=config.TARGET_SIGNAL_DIR)
+        test_loader = torch.utils.data.DataLoader(
+            dataset=test_set,
+            batch_size=None,
+            num_workers=config.NUM_WORKERS,
+            shuffle=False
+        )
+        print('\nEvaluation DataLoader constructed successfully!')
+
+        # Code to use multiple GPUs (if available)
+        if torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            model = torch.nn.DataParallel(model)
+
+        # --------------------------------------
+        # Load checkpointed model (if  present)
+        # --------------------------------------
+        if config.DEVICE == "cpu":
+            load_on_cpu = True
+        else:
+            load_on_cpu = False
+        model, optimizer, checkpointed_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
+        if checkpoint_flag:
+            print(f"Checkpoint Found! Loading from checkpoint :: LOSS={checkpointed_loss}")
+        else:
+            print("Checkpoint Not Found! Training from beginning")
+
+        # -----------------------------
+        # Start training
+        # -----------------------------
+
+        train_loss_per_epoch = []
+        # train_loss = 0.0
+        for epoch in range(config.EPOCHS):
+            # short-circuit for evaluation
             if k == 1:
                 break
-            print(f"Training {idx + 1}/{len(video_files_train)} video files in current Fold: {k}")
-            # print(f"Reading Current File: {video_file_path}")
-            train_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.CLIP_SIZE)
+            train_loss = engine.train_fn(model, train_loader, optimizer, loss_fn, save_model=True)
 
-            train_loader = torch.utils.data.DataLoader(
-                dataset=train_set,
-                batch_size=None,
-                num_workers=config.NUM_WORKERS,
-                shuffle=False
-            )
-            # print('\nTrainLoader constructed successfully!')
+            print(f"\nFinished => [Epoch: {epoch + 1}/{config.EPOCHS} ",
+                  "Training Loss: {:.3f} ".format(train_loss))
 
-            # Code to use multiple GPUs (if available)
-            if torch.cuda.device_count() > 1:
-                print("Let's use", torch.cuda.device_count(), "GPUs!")
-                model = torch.nn.DataParallel(model)
-
-            # --------------------------------------
-            # Load checkpointed model (if  present)
-            # --------------------------------------
-            if config.DEVICE == "cpu":
-                load_on_cpu = True
-            else:
-                load_on_cpu = False
-            model, optimizer, loaded_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
-            if checkpoint_flag:
-                print(f"Checkpoint Found! Loading from checkpoint :: LOSS={loaded_loss}")
-            else:
-                print("Checkpoint Not Found! Training from beginning")
-
-            # -----------------------------
-            # Start training
-            # -----------------------------
-
-            train_loss_data_per_epoch = []
-            # train_loss = 0.0
-            for epoch in tqdm(range(config.EPOCHS), leave=True, position=0):
-                # training
-                train_loss = engine.train_fn(model, train_loader, optimizer, loss_fn, save_model=True)
-
-                # print(f"\n[Epoch: {epoch + 1}/{config.EPOCHS} ",
-                #       "Training Loss: {:.3f} ".format(train_loss))
-
-                train_loss_data_per_epoch.append(train_loss)
-
-            mean_loss = np.mean(train_loss_data_per_epoch)
-            # Save the mean_loss value for each video instance to the writer
-            writer.add_scalar("Loss/train", mean_loss, idx)
-            train_loss_data.append(mean_loss)
-            print(f"Avg Training Loss: {np.mean(mean_loss)} for {config.EPOCHS} epochs")
-            # Could be used to save only the best model? Not sure if that is a good idea though
-            # if loaded_loss != None and mean_loss < loaded_loss:
-            save_model_checkpoint(model, optimizer, mean_loss, config.CHECKPOINT_PATH)
-
-        writer.flush()
-
-        test_loss_data = []
-        truth_hr_list = []
-        estimated_hr_list = []
-        for idx, video_file_path in enumerate(video_files_test):
-            print(f"Validating {idx + 1}/{len(video_files_test)} video files")
-            # print(f"Reading Current File: {video_file_path}")
-            test_set = DataLoaderRhythmNet(data_path=video_file_path, target_signal_path=config.TARGET_SIGNAL_DIR, clip_size=config.CLIP_SIZE)
-            test_loader = torch.utils.data.DataLoader(
-                dataset=test_set,
-                batch_size=None,
-                num_workers=config.NUM_WORKERS,
-                shuffle=False
-            )
-
-            # print('\nTestLoader constructed successfully!')
-
-            # Code to use multiple GPUs (if available)
-            if torch.cuda.device_count() > 1:
-                print("Let's use", torch.cuda.device_count(), "GPUs!")
-                model = torch.nn.DataParallel(model)
-
-            # --------------------------------------
-            # Load checkpointed model (if  present)
-            # --------------------------------------
-            if config.DEVICE == "cpu":
-                load_on_cpu = True
-            else:
-                load_on_cpu = False
-            model, optimizer, loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
-
-            # -----------------------------
-            # Start Validation
-            # -----------------------------
-
-            print(f"Starting training for {config.EPOCHS} Epochs")
-
-            test_loss_data_per_epoch = []
-            eval_loss = 0.0
-            lowest_error = None
-            best_hr = {"target": 0.0, "predicted": 0.0}
-            for epoch in tqdm(range(config.EPOCHS), leave=True, position=0):
-                # validation
-                target, predicted, eval_loss = engine.eval_fn(model, test_loader, loss_fn)
-
-                # print(f"Epoch {epoch} => Val Loss: {eval_loss}")
-
-                # record the hr values only for the lowest absolute difference.
-                test_loss_data_per_epoch.append(eval_loss)
-                if lowest_error is None:
-                    lowest_error = float(abs(target - predicted))
-                    best_hr["target"], best_hr["predicted"] = target, predicted
-                elif float(abs(target - predicted)) < lowest_error:
-                    best_hr["target"], best_hr["predicted"] = target, predicted
+            # Save model with final train loss (script to save the best weights?)
+            if checkpointed_loss != 0.0:
+                if train_loss < checkpointed_loss:
+                    save_model_checkpoint(model, optimizer, train_loss, checkpoint_path)
+                    checkpointed_loss = train_loss
                 else:
                     pass
-                # truth_hr_list.append(target)
-                # estimated_hr_list.append(predicted)
+            else:
+                if len(train_loss_per_epoch) > 0:
+                    if train_loss < min(train_loss_per_epoch):
+                        save_model_checkpoint(model, optimizer, train_loss, checkpoint_path)
+                else:
+                    save_model_checkpoint(model, optimizer, train_loss, checkpoint_path)
 
-                # writer.add_scalars('gt_vs_est_hr', {'true_hr': target, 'estimated_hr': predicted}, idx)
+            train_loss_per_epoch.append(train_loss)
+            writer.add_scalar("Loss/train", train_loss, epoch)
 
-            truth_hr_list.append(best_hr["target"])
-            estimated_hr_list.append(best_hr["predicted"])
-            ba_plot_image = create_plot_for_tensorboard('bland_altman', truth_hr_list, estimated_hr_list)
-            gtvsest_plot_image = create_plot_for_tensorboard('gt_vs_est', truth_hr_list, estimated_hr_list)
-            mean_loss = np.mean(test_loss_data_per_epoch)
-            # Save the mean_loss value for each video instance to the writer
-            writer.add_image('BA_plot', ba_plot_image, idx)
-            writer.add_image('gtvsest_plot', gtvsest_plot_image, idx)
-            writer.add_scalar("Loss/test", mean_loss, idx)
-            test_loss_data.append(mean_loss)
-
-            print(f"Avg Validation Loss: {np.mean(test_loss_data_per_epoch)} for {config.EPOCHS} epochs")
+        mean_loss = np.mean(train_loss_per_epoch)
+        # Save the mean_loss value for each video instance to the writer
+        print(f"Avg Training Loss: {np.mean(mean_loss)} for {config.EPOCHS} epochs")
         writer.flush()
-        plot_train_test_curves(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH, fold_tag=k)
-        gt_vs_est(truth_hr_list, estimated_hr_list, plot_path=config.PLOT_PATH)
-        bland_altman_plot(truth_hr_list, estimated_hr_list, plot_path=config.PLOT_PATH)
+
+        # -----------------------------
+        # Start Validation
+        # -----------------------------
+
+        print(f"Validating {len(video_files_test)} video files for {config.EPOCHS_TEST} Epochs")
+
+        # # --------------------------------------
+        # # Load checkpointed model (if  present)
+        # # --------------------------------------
+        # if config.DEVICE == "cpu":
+        #     load_on_cpu = True
+        # else:
+        #     load_on_cpu = False
+        # model, optimizer, loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
+
+        eval_loss_per_epoch = []
+        for epoch in range(config.EPOCHS_TEST):
+            # validation
+            target_hr_list, predicted_hr_list, eval_loss = engine.eval_fn(model, test_loader, loss_fn)
+
+            # truth_hr_list.append(target)
+            # estimated_hr_list.append(predicted)
+            print(f"Epoch {epoch} => Val Loss: {eval_loss}")
+            # writer.add_scalars('gt_vs_est_hr', {'true_hr': target, 'estimated_hr': predicted}, idx)
+            eval_loss_per_epoch.append(eval_loss)
+            writer.add_scalar("Loss/test", mean_loss, epoch)
+
+            # Plots on tensorboard
+            ba_plot_image = create_plot_for_tensorboard('bland_altman', target_hr_list, predicted_hr_list)
+            gtvsest_plot_image = create_plot_for_tensorboard('gt_vs_est', target_hr_list, predicted_hr_list)
+            writer.add_image('BA_plot', ba_plot_image, epoch)
+            writer.add_image('gtvsest_plot', gtvsest_plot_image, epoch)
+
+        mean_test_loss = np.mean(eval_loss_per_epoch)
+
+        print(f"Avg Validation Loss: {mean_test_loss} for {config.EPOCHS_TEST} epochs")
+        writer.flush()
+        # plot_train_test_curves(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH, fold_tag=k)
+        # Plots on the local storage.
+        gt_vs_est(target_hr_list, predicted_hr_list, plot_path=config.PLOT_PATH)
+        bland_altman_plot(target_hr_list, predicted_hr_list, plot_path=config.PLOT_PATH)
         writer.close()
         print("done")
 

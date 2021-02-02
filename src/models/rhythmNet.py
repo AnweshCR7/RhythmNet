@@ -2,7 +2,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 import torchvision.models as models
-from models.resnet import resnet18
 import ssl
 
 ssl._create_default_https_context = ssl._create_stdlib_context
@@ -17,19 +16,36 @@ class RhythmNet(nn.Module):
         super(RhythmNet, self).__init__()
 
         # resnet o/p -> bs x 1000
-        self.resnet18 = resnet18(pretrained=False)
-        self.rnn = nn.GRU(input_size=1000, hidden_size=10)
+        # self.resnet18 = resnet18(pretrained=False)
+        resnet = models.resnet18(pretrained=True)
+        modules = list(resnet.children())[:-1]
+
+        self.resnet18 = nn.Sequential(*modules)
+        # The resnet average pool layer before fc
+        # self.avgpool = nn.AvgPool2d((10, 1))
+        self.fc_resnet = nn.Linear(512, 1)
+
+        self.rnn = nn.GRU(input_size=10, hidden_size=10)
         self.fc = nn.Linear(100, 1)
 
-    def forward(self, frame, target):
-        x = self.resnet18(frame)
+    def forward(self, st_maps, target):
+        output_per_clip = []
+        # so as to reflect a batch_size = 1
+        st_maps = st_maps.unsqueeze(0)
+        for t in range(st_maps.size(1)):
+            with torch.no_grad():
+                x = self.resnet18(st_maps[:, t, :, :, :])
+                # collapse dimensions to BSx512 (resnet o/p)
+                x = x.view(x.size(0), -1)
+            # output dim: BSx1
+            x = self.fc_resnet(x)
+            # For now since we're working with BS = 1, lets collapse that dimension
+            output_per_clip.append(x.squeeze(0))
+            # input should be (seq_len, batch, input_size)
 
-        # input should be (seq_len, batch, input_size)
-        output, h_n = self.rnn(x.unsqueeze(1))
-        output = self.fc(output.flatten())
-        # print(output)
-        # return torch.mean(output, dim=0)
-        return output
+        output_seq = torch.stack(output_per_clip, dim=0).transpose_(0, 1)
+        gru_output, h_n = self.rnn(output_seq.unsqueeze(1))
+        return output_seq, gru_output.squeeze(0)
 
     def name(self):
         return "RhythmNet"

@@ -32,14 +32,15 @@
 
 # haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
 FACE_DATA_DIR = "../data/face_video/"
-TARGET_SIGNAL_DIR = "/Users/anweshcr7/thesis/src/data/data_preprocessed/"
+TARGET_SIGNAL_DIR = "/Users/anweshcr7/Downloads/CleanerPPG/DEAP/Cleaned/"
 SAVE_CSV_PATH = "kfold.csv"
 ST_MAPS_PATH = "../data/st_maps/"
 CHECKPOINT_PATH = "../checkpoint"
 DATA_PATH = "../data/"
 PLOT_PATH = "../plots"
 BATCH_SIZE = 10
-EPOCHS = 20
+EPOCHS = 10
+EPOCHS_TEST = 1
 CLIP_SIZE = 300
 lr = 1e-3
 IMAGE_WIDTH = 300
