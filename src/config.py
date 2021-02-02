@@ -28,7 +28,7 @@
 # EPOCHS = 20
 # lr = 1e-3
 # CLIP_SIZE = 300
-
+# TENSORBOARD_PATH = HOME_DIR + "/runs/"
 
 # haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
 FACE_DATA_DIR = "../data/face_video/"

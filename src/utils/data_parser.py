@@ -4,7 +4,7 @@ import pickle
 import glob
 import numpy as np
 import pandas as pd
-import config as config
+import src.config as config
 from scipy import signal
 import heartpy as hp
 from tqdm import tqdm
@@ -255,7 +255,7 @@ def get_hr(signal_data, sampling_rate):
     # High precision gives an error in signal after re-sampling
     # wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate, high_precision=True, clean_rr=True)
     wd_data, m_data = hp.process(signal_data, sample_rate=sampling_rate)
-
+    # wd_data, m_data = hp.process_segmentwise(signal_data, sample_rate=sampling_rate, segment_width=8)
     return [m_data["bpm"]]
 
 
@@ -302,6 +302,17 @@ if __name__ == '__main__':
     # r = list(process_map(get_spatio_temporal_map_threaded, video_files[:2], max_workers=1))
     # signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial04")
     # get_hr(signal, 50)
+    # signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial01")
+    df = pd.DataFrame(pd.read_csv("/Users/anweshcr7/Downloads/CleanerPPG/DEAP/Cleaned/s05_trial21 PPG.csv"))
+    timer = df["Time"].values
+    sample_rate = hp.get_samplerate_mstimer(timer)
+    print(get_hr(df["Signal"].values, sample_rate))
 
-    make_csv()
+    # filtered_signal = hp.filter_signal(df["Signal"].values, cutoff=[0.7, 2.5], sample_rate=sample_rate, order=3, filtertype='bandpass')
+    resampled = signal.resample(df["Signal"].values, 3000, df["Time"].values)
+    resampled_sample_rate = hp.get_samplerate_mstimer(resampled[1])
+    #
+    print(get_hr(resampled[0], resampled_sample_rate))
+
+    # make_csv()
     print('done')

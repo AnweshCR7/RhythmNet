@@ -74,8 +74,8 @@ def bland_altman_plot(data1, data2, plot_path=None, tb=False):
         return buf
 
     else:
-        # plt.show()
-        fig.savefig(plot_path + f'/bland-altman_new.png', dpi=fig.dpi)
+        plt.show()
+        # fig.savefig(plot_path + f'/bland-altman_new.png', dpi=fig.dpi)
 
 
 def create_plot_for_tensorboard(plot_name, data1, data2):
@@ -106,4 +106,4 @@ def create_plot_for_tensorboard(plot_name, data1, data2):
 
 if __name__ == '__main__':
     # plot_signal('data/data_preprocessed', 's22_trial05')
-    bland_altman_plot(np.random.random(10), np.random.random(10), plot_path=config.PLOT_PATH)
+    gt_vs_est(np.random.random(100), np.random.random(100), plot_path=config.PLOT_PATH)
