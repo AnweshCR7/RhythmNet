@@ -14,7 +14,7 @@ from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_
 from models.simpleCNN import SimpleCNN
 from models.lenet import LeNet
 from models.rhythmNet import RhythmNet
-from loss_fn.rhythmnet_loss import RhythmNetLoss
+from loss_func.rhythmnet_loss import RhythmNetLoss
 
 
 def run_training():
@@ -76,7 +76,7 @@ def run_training():
                             video_files_test["video"].values]
         video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
                              video_files_train["video"].values]
-
+        video_files_train = video_files_train[:100]
         # print(f"Reading Current File: {video_file_path}")
         train_set = DataLoaderRhythmNet(st_maps_path=video_files_train, target_signal_path=config.TARGET_SIGNAL_DIR)
 
@@ -127,9 +127,9 @@ def run_training():
         # train_loss = 0.0
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
-            if k == 1:
-                break
-            train_loss = engine.train_fn(model, train_loader, optimizer, loss_fn, save_model=True)
+            # if k == 1:
+            #     break
+            target_hr_list, predicted_hr_list, train_loss = engine.train_fn(model, train_loader, optimizer, loss_fn)
 
             print(f"\nFinished => [Epoch: {epoch + 1}/{config.EPOCHS} ",
                   "Training Loss: {:.3f} ".format(train_loss))
@@ -150,6 +150,13 @@ def run_training():
 
             train_loss_per_epoch.append(train_loss)
             writer.add_scalar("Loss/train", train_loss, epoch)
+
+            rmse_train = rmse(np.array(target_hr_list), np.array(predicted_hr_list))
+            mae_train = mae(np.array(target_hr_list), np.array(predicted_hr_list))
+            writer.add_scalar("RMSE/train", rmse_train, epoch)
+            writer.add_scalar("MAE/train", mae_train, epoch)
+            print(f"Epoch {epoch + 1} => RMSE HR: {rmse_train}")
+            print(f"Epoch {epoch + 1} => MAE HR: {mae_train}")
 
         mean_loss = np.mean(train_loss_per_epoch)
         # Save the mean_loss value for each video instance to the writer
@@ -174,13 +181,14 @@ def run_training():
         eval_loss_per_epoch = []
         for epoch in range(config.EPOCHS_TEST):
             # validation
-            target_hr_list, predicted_hr_list, eval_loss = engine.eval_fn(model, test_loader, loss_fn)
+            target_hr_list, predicted_hr_list = engine.eval_fn(model, test_loader, loss_fn)
 
             # truth_hr_list.append(target)
             # estimated_hr_list.append(predicted)
-            print(f"Epoch {epoch} => Val Loss: {eval_loss}")
+            print(f"Epoch {epoch+1} => RMSE HR: {rmse(np.array(target_hr_list), np.array(predicted_hr_list))}")
+            print(f"Epoch {epoch+1} => MAE HR: {mae(np.array(target_hr_list), np.array(predicted_hr_list))}")
             # writer.add_scalars('gt_vs_est_hr', {'true_hr': target, 'estimated_hr': predicted}, idx)
-            eval_loss_per_epoch.append(eval_loss)
+            # eval_loss_per_epoch.append(eval_loss)
             writer.add_scalar("Loss/test", mean_loss, epoch)
 
             # Plots on tensorboard
@@ -189,9 +197,9 @@ def run_training():
             writer.add_image('BA_plot', ba_plot_image, epoch)
             writer.add_image('gtvsest_plot', gtvsest_plot_image, epoch)
 
-        mean_test_loss = np.mean(eval_loss_per_epoch)
+        # mean_test_loss = np.mean(eval_loss_per_epoch)
 
-        print(f"Avg Validation Loss: {mean_test_loss} for {config.EPOCHS_TEST} epochs")
+        # print(f"Avg Validation Loss: {mean_test_loss} for {config.EPOCHS_TEST} epochs")
         writer.flush()
         # plot_train_test_curves(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH, fold_tag=k)
         # Plots on the local storage.
@@ -199,6 +207,16 @@ def run_training():
         bland_altman_plot(target_hr_list, predicted_hr_list, plot_path=config.PLOT_PATH)
         writer.close()
         print("done")
+
+
+def rmse(l1, l2):
+
+    return np.sqrt(np.mean((l1-l2)**2))
+
+
+def mae(l1, l2):
+
+    return np.mean([abs(item1-item2)for item1,item2 in zip(l1, l2)])
 
 
 if __name__ == '__main__':

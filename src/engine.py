@@ -9,6 +9,8 @@ def train_fn(model, data_loader, optimizer, loss_fn):
     fin_loss = 0
     loss = 0.0
 
+    target_hr_list = []
+    predicted_list = []
     tk_iterator = tqdm(data_loader, total=len(data_loader))
     for data in tk_iterator:
         # an item of the data is available as a dictionary
@@ -22,10 +24,11 @@ def train_fn(model, data_loader, optimizer, loss_fn):
             loss = loss_fn(outputs, data["target"])
             loss.backward()
             optimizer.step()
-
+        target_hr_list.append(data["target"].item())
+        predicted_list.append(outputs[2].mean().item())
         fin_loss += loss.item()
 
-    return fin_loss / len(data_loader)
+    return target_hr_list, predicted_list, fin_loss / len(data_loader)
 
 
 def eval_fn(model, data_loader, loss_fn):
@@ -40,11 +43,11 @@ def eval_fn(model, data_loader, loss_fn):
                 data[key] = value.to(config.DEVICE)
 
             # with torch.set_grad_enabled(False):
-            out = model(**data)
-            loss = loss_fn(out, data["target"])
+            _, _, out = model(**data)
+            # loss = loss_fn(out, data["target"])
             # _, batch_preds = torch.max(out.data, 1)
-            fin_loss += loss.item()
-            predicted_list.append(out.item())
+            # fin_loss += loss.item()
+            predicted_list.append(out.mean().item())
             target_hr_list.append(data["target"].item())
 
-        return target_hr_list, predicted_list, fin_loss / len(data_loader)
+        return target_hr_list, predicted_list

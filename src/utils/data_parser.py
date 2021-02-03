@@ -259,6 +259,9 @@ def calculate_hr(signal_data, timestamps=None):
             hr_bpm = m["bpm"]
         except:
             hr_bpm = 75.0
+
+        if np.isnan(hr_bpm):
+            hr_bpm = 75.0
         return hr_bpm
 
     else:
@@ -276,7 +279,7 @@ def calculate_hr(signal_data, timestamps=None):
 
 
 def make_csv():
-    video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")[:6]
+    video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")
     video_files = []
     for path in video_file_paths:
         split_by_path = path.split('/')
@@ -319,16 +322,16 @@ if __name__ == '__main__':
     # signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial04")
     # get_hr(signal, 50)
     # signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial01")
-    df = pd.DataFrame(pd.read_csv("/Users/anweshcr7/Downloads/CleanerPPG/DEAP/Cleaned/s05_trial21 PPG.csv"))
-    timer = df["Time"].values
-    sample_rate = hp.get_samplerate_mstimer(timer)
-    print(calculate_hr(df["Signal"].values, sample_rate))
-
-    # filtered_signal = hp.filter_signal(df["Signal"].values, cutoff=[0.7, 2.5], sample_rate=sample_rate, order=3, filtertype='bandpass')
-    resampled = signal.resample(df["Signal"].values, 3000, df["Time"].values)
-    resampled_sample_rate = hp.get_samplerate_mstimer(resampled[1])
+    # df = pd.DataFrame(pd.read_csv("/Users/anweshcr7/Downloads/CleanerPPG/DEAP/Cleaned/s05_trial21 PPG.csv"))
+    # timer = df["Time"].values
+    # sample_rate = hp.get_samplerate_mstimer(timer)
+    # print(calculate_hr(df["Signal"].values, sample_rate))
     #
-    print(calculate_hr(resampled[0], resampled_sample_rate))
+    # # filtered_signal = hp.filter_signal(df["Signal"].values, cutoff=[0.7, 2.5], sample_rate=sample_rate, order=3, filtertype='bandpass')
+    # resampled = signal.resample(df["Signal"].values, 3000, df["Time"].values)
+    # resampled_sample_rate = hp.get_samplerate_mstimer(resampled[1])
+    # #
+    # print(calculate_hr(resampled[0], resampled_sample_rate))
 
-    # make_csv()
+    make_csv()
     print('done')
