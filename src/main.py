@@ -76,7 +76,7 @@ def run_training():
                             video_files_test["video"].values]
         video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
                              video_files_train["video"].values]
-        video_files_train = video_files_train[:100]
+        # video_files_train = video_files_train
         # print(f"Reading Current File: {video_file_path}")
         train_set = DataLoaderRhythmNet(st_maps_path=video_files_train, target_signal_path=config.TARGET_SIGNAL_DIR)
 
@@ -127,8 +127,8 @@ def run_training():
         # train_loss = 0.0
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
-            # if k == 1:
-            #     break
+            if k == 1:
+                break
             target_hr_list, predicted_hr_list, train_loss = engine.train_fn(model, train_loader, optimizer, loss_fn)
 
             print(f"\nFinished => [Epoch: {epoch + 1}/{config.EPOCHS} ",

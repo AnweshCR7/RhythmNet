@@ -56,44 +56,44 @@ class MyLoss(torch.autograd.Function):
         return output, None, None
 
 
-if __name__ == '__main__':
-
-    dtype = torch.float
-    device = torch.device("cpu")
-    # device = torch.device("cuda:0")  # Uncomment this to run on GPU
-    # torch.backends.cuda.matmul.allow_tf32 = False  # Uncomment this to run on GPU
-
-    # The above line disables TensorFloat32. This a feature that allows
-    # networks to run at a much faster speed while sacrificing precision.
-    # Although TensorFloat32 works well on most real models, for our toy model
-    # in this tutorial, the sacrificed precision causes convergence issue.
-    # For more information, see:
-    # https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
-
-    # N is batch size; D_in is input dimension;
-    # H is hidden dimension; D_out is output dimension.
-    N, D_in, H, D_out = 64, 1000, 100, 10
-    # tensor([[0.4178, 0.8199, 0.1713, -0.8368, 0.2154, -0.4960, 0.4925, -0.7679,
-    #          -0.1096, 0.7345]], grad_fn= < SqueezeBackward1 >)
-    # Create random Tensors to hold input and outputs.
-    with torch.set_grad_enabled(True):
-        # hr_outs = torch.tensor([0.4178, 0.8199, 0.1713, -0.8368, 0.2154, -0.4960, 0.4925, -0.7679, -0.1096, 0.7345],
-        #                                                device=device, dtype=dtype)
-        hr_outs = torch.autograd.Variable(torch.randn(3), requires_grad=True)
-        hr_mean = hr_outs.mean()
-        # y = torch.tensor(0., device=device, dtype=dtype)
-
-        # Create random Tensors for weights.
-        # w1 = torch.randn(D_in, H, device=device, dtype=dtype, requires_grad=True)
-        # w2 = torch.randn(H, D_out, device=device, dtype=dtype, requires_grad=True)
-
-        learning_rate = 1e-6
-        smooth_loss = torch.autograd.Variable(torch.zeros(1), requires_grad=True)
-        for i in range(hr_outs.shape[0]):
-            # To apply our Function, we use Function.apply method. We alias this as 'relu'.
-            custom_loss = MyLoss.apply
-            smooth_loss = smooth_loss + custom_loss(hr_outs[i], hr_outs, hr_outs.shape[0])
-
-        smooth_loss.backward()
-
-    print("done")
+# if __name__ == '__main__':
+#
+#     dtype = torch.float
+#     device = torch.device("cpu")
+#     # device = torch.device("cuda:0")  # Uncomment this to run on GPU
+#     # torch.backends.cuda.matmul.allow_tf32 = False  # Uncomment this to run on GPU
+#
+#     # The above line disables TensorFloat32. This a feature that allows
+#     # networks to run at a much faster speed while sacrificing precision.
+#     # Although TensorFloat32 works well on most real models, for our toy model
+#     # in this tutorial, the sacrificed precision causes convergence issue.
+#     # For more information, see:
+#     # https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
+#
+#     # N is batch size; D_in is input dimension;
+#     # H is hidden dimension; D_out is output dimension.
+#     N, D_in, H, D_out = 64, 1000, 100, 10
+#     # tensor([[0.4178, 0.8199, 0.1713, -0.8368, 0.2154, -0.4960, 0.4925, -0.7679,
+#     #          -0.1096, 0.7345]], grad_fn= < SqueezeBackward1 >)
+#     # Create random Tensors to hold input and outputs.
+#     with torch.set_grad_enabled(True):
+#         # hr_outs = torch.tensor([0.4178, 0.8199, 0.1713, -0.8368, 0.2154, -0.4960, 0.4925, -0.7679, -0.1096, 0.7345],
+#         #                                                device=device, dtype=dtype)
+#         hr_outs = torch.autograd.Variable(torch.randn(3), requires_grad=True)
+#         hr_mean = hr_outs.mean()
+#         # y = torch.tensor(0., device=device, dtype=dtype)
+#
+#         # Create random Tensors for weights.
+#         # w1 = torch.randn(D_in, H, device=device, dtype=dtype, requires_grad=True)
+#         # w2 = torch.randn(H, D_out, device=device, dtype=dtype, requires_grad=True)
+#
+#         learning_rate = 1e-6
+#         smooth_loss = torch.autograd.Variable(torch.zeros(1), requires_grad=True)
+#         for i in range(hr_outs.shape[0]):
+#             # To apply our Function, we use Function.apply method. We alias this as 'relu'.
+#             custom_loss = MyLoss.apply
+#             smooth_loss = smooth_loss + custom_loss(hr_outs[i], hr_outs, hr_outs.shape[0])
+#
+#         smooth_loss.backward()
+#
+#     print("done")

@@ -29,18 +29,28 @@ def chunkify(img, block_width=5, block_height=5):
     # print(x_len, y_len)
 
     chunks = []
-    x_indices = [i for i in range(0, shape[0] + 1, block_width)]
-    y_indices = [i for i in range(0, shape[1] + 1, block_height)]
+    x_indices = [i for i in range(0, shape[0] + 1, x_len)]
+    y_indices = [i for i in range(0, shape[1] + 1, x_len)]
 
     shapes = list(zip(x_indices, y_indices))
 
-    for i in range(len(shapes) - 1):
+    #  # for plotting purpose
+    # implot = plt.imshow(img)
+    #
+    # end_x_list = []
+    # end_y_list = []
+
+
+    for i in range(len(x_indices) - 1):
         # try:
-        start_x = shapes[i][0]
-        start_y = shapes[i][1]
-        end_x = shapes[i + 1][0]
-        end_y = shapes[i + 1][1]
-        chunks.append(img[start_x:end_x, start_y:end_y])
+        start_x = x_indices[i]
+        end_x = x_indices[i + 1]
+        for j in range(len(y_indices) - 1):
+            start_y = y_indices[j]
+            end_y = y_indices[j+1]
+            # end_x_list.append(end_x)
+            # end_y_list.append(end_y)
+            chunks.append(img[start_x:end_x, start_y:end_y])
         # except IndexError:
         #     print('End of Array')
 
@@ -49,7 +59,7 @@ def chunkify(img, block_width=5, block_height=5):
 
 def plot_image(img):
     plt.axis("off")
-    plt.imshow(img)
+    plt.imshow(img, origin='upper')
     plt.show()
 
 
@@ -111,13 +121,13 @@ def get_spatio_temporal_map_threaded_wrapper():
 def get_spatio_temporal_map():
     video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
     start = time.time()
-    for file in tqdm(video_files[:2]):
-        maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
-        for index in range(10):
+    for file in tqdm(video_files[:1]):
+        maps = np.zeros((1, config.CLIP_SIZE, 25, 3))
+        for index in range(1):
             # print(index)
             maps[index, :, :, :] = preprocess_video_to_frame(
                 video_path=file,
-                output_shape=(125, 125), slice_index=index, clip_size=config.CLIP_SIZE)
+                output_shape=(215, 215), slice_index=index, clip_size=config.CLIP_SIZE)
 
         file_name = file.split('/')[-1].split('.')[0]
         folder_name = file.split('/')[-2]
@@ -163,14 +173,15 @@ def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
             # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             faces = detector.detectMultiScale(frame)
             # We expect only one face
-            if len(faces) is not 0:
-                (x, y, w, d) = faces[0]
-            else:
-                (x, y, w, d) = (308, 189, 217, 217)
+            # if len(faces) is not 0:
+            #     (x, y, w, d) = faces[0]
+            # else:
+            (x, y, w, d) = (308, 189, 215, 215)
             # overlay rectangle as per detected face.
             # cv2.rectangle(frame, (x, y), (x + w, y + d), (255, 255, 255), 2)
             frame_cropped = frame[y:(y + d), x:(x + w)]
-            frame_resized = np.zeros((output_shape[0], output_shape[1], 3))
+
+            # frame_resized = np.zeros((output_shape[0], output_shape[1], 3))
 
             if not ret:
                 break
@@ -178,8 +189,8 @@ def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
             window_name = 'image'
             # Downsample to 36x36 using bicubic interpolation and rename cropped frame to frame
             try:
-                frame_resized = cv2.resize(frame_cropped, output_shape, interpolation=cv2.INTER_CUBIC)
-                frame_resized = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2YUV)
+                # frame_resized = cv2.resize(frame_cropped, output_shape, interpolation=cv2.INTER_CUBIC)
+                frame_resized = cv2.cvtColor(frame_cropped, cv2.COLOR_BGR2YUV)
 
             except:
                 print('\n--------- ERROR! -----------\nUsual cv empty error')
@@ -208,10 +219,10 @@ def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
         # Breaks when we have read the clip b/w start_frame till end_frame
         if frame_counter == (end_frame-start_frame):
             break
-
+    # plot_image(spatio_temporal_map)
     for block_idx in range(spatio_temporal_map.shape[1]):
         # Not sure about uint8
-        fn_scale_0_255 = lambda x: (x * 255.0).astype('uint8')
+        fn_scale_0_255 = lambda x: (x * 255.0).astype(np.uint8)
         scaled_channel_0 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 0].reshape(-1, 1))
         spatio_temporal_map[:, block_idx, 0] = fn_scale_0_255(scaled_channel_0.flatten())
         scaled_channel_1 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 1].reshape(-1, 1))
@@ -221,6 +232,7 @@ def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
 
 
     cap.release()
+    plot_image(spatio_temporal_map)
     return spatio_temporal_map
 
 
@@ -286,7 +298,7 @@ def make_csv():
         video_file = os.path.join(split_by_path[-2], split_by_path[-1])
         video_files.append(video_file)
 
-    num_folds = 2
+    num_folds = 3
     kf = model_selection.KFold(n_splits=num_folds)
 
     col_names = ['video', 'set', 'iteration']
@@ -315,7 +327,7 @@ if __name__ == '__main__':
     #         output_shape=(125, 125), index=index, clip_size=300)
     #
     # np.save('sp_maps.npy', maps)
-    # get_spatio_temporal_map()
+    get_spatio_temporal_map()
     # get_spatio_temporal_map_threaded_wrapper()
     # video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
     # r = list(process_map(get_spatio_temporal_map_threaded, video_files[:2], max_workers=1))
@@ -333,5 +345,5 @@ if __name__ == '__main__':
     # #
     # print(calculate_hr(resampled[0], resampled_sample_rate))
 
-    make_csv()
+    # make_csv()
     print('done')

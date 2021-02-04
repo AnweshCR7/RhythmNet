@@ -1,6 +1,7 @@
 import torch.nn as nn
 import numpy as np
 import torch
+import src.config as config
 from loss_func.custom_loss import MyLoss
 
 
@@ -11,6 +12,7 @@ class RhythmNetLoss(nn.Module):
         self.lambd = weight
         self.gru_outputs_considered = None
         self.custom_loss = MyLoss()
+        self.device = config.DEVICE
 
     def forward(self, outputs, target):
         frame_rate = 50.0
@@ -18,6 +20,7 @@ class RhythmNetLoss(nn.Module):
         target_array = target.repeat(1, resnet_outputs.shape[1])
         l1_loss = self.l1_loss(resnet_outputs, target_array)
         smooth_loss_component = self.smooth_loss(gru_outputs)
+
         loss = l1_loss + self.lambd*smooth_loss_component
         return loss
 
