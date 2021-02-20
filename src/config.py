@@ -31,7 +31,9 @@
 # TENSORBOARD_PATH = HOME_DIR + "/runs/"
 
 haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
-FACE_DATA_DIR = "../data/face_video/"
+eye_cascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_eye.xml"
+# FACE_DATA_DIR = "../data/face_video/"
+FACE_DATA_DIR = "/Volumes/Backup Plus/vision/DEAP_emotion/face_video"
 TARGET_SIGNAL_DIR = "/Users/anweshcr7/Downloads/CleanerPPG/DEAP/Cleaned/"
 SAVE_CSV_PATH = "kfold.csv"
 ST_MAPS_PATH = "../data/st_maps/"

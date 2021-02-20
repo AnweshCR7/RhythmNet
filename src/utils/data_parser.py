@@ -78,14 +78,57 @@ def get_haarcascade():
     return cv2.CascadeClassifier(haarcascade_filename)
 
 
+def get_eye_cascade():
+    eye_cascade_url = config.eye_cascade_url
+    eye_cascade_filename = eye_cascade_url.split('/')[-1]
+    # chech if file is in working directory
+    if eye_cascade_filename in os.listdir(os.curdir):
+        # print("xml file already exists")
+        pass
+    else:
+        # download file from url and save locally as haarcascade_frontalface_alt2.xml, < 1MB
+        urlreq.urlretrieve(eye_cascade_url, eye_cascade_filename)
+        print("xml file downloaded")
+
+    return cv2.CascadeClassifier(eye_cascade_filename)
+
+
+def get_frames_and_video_meta_data(video_path):
+    cap = cv2.VideoCapture(video_path)
+    frameRate = cap.get(5)  # frame rate
+
+    # Frame dimensions: WxH
+    frame_dims = (int(cap.get(3)), int(cap.get(4)))
+    # Paper mentions a stride of 0.5 seconds
+    sliding_window_stride = int(frameRate / 2)
+    num_frames = int(cap.get(7))
+
+    # Frames from the video have shape NumFrames x H x W x C
+    frames = np.zeros((num_frames, frame_dims[1], frame_dims[0], 3), dtype='uint8')
+
+    frame_counter = 0
+    while cap.isOpened():
+        # curr_frame_id = int(cap.get(1))  # current frame number
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        frames[frame_counter, :, :, :] = frame
+        frame_counter += 1
+        if frame_counter == num_frames:
+            break
+
+    cap.release()
+    return frames, frameRate, sliding_window_stride
+
+
 def get_spatio_temporal_map_threaded(file):
     # print(f"Generating Maps for file: {file}")
-    maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
-    for index in range(2):
+    # maps = np.zeros((10, config.CLIP_SIZE, 25, 3))
         # print(index)
-        maps[index, :, :, :] = preprocess_video_to_frame(
-            video_path=file,
-            output_shape=(125, 125), slice_index=index, clip_size=config.CLIP_SIZE)
+    maps = preprocess_video_to_st_maps(
+        video_path=file,
+        output_shape=(180, 180), clip_size=config.CLIP_SIZE)
 
     file_name = file.split('/')[-1].split('.')[0]
     folder_name = file.split('/')[-2]
@@ -100,7 +143,6 @@ def get_spatio_temporal_map_threaded(file):
 
 def get_spatio_temporal_map_threaded_wrapper():
     video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
-
 
     # try:
     #     pool = Pool(3)  # on 8 processors
@@ -120,14 +162,16 @@ def get_spatio_temporal_map_threaded_wrapper():
 
 def get_spatio_temporal_map():
     video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
+    # video_files = ['/Volumes/Backup Plus/vision/vipl_videos/p10_v1_source1.avi', '/Volumes/Backup Plus/vision/vipl_videos/p10_v1_source2.avi']
+    # video_files = ['/Volumes/Backup Plus/vision/DEAP_emotion/face_video/s01/s01_trial01.avi']
     start = time.time()
-    for file in tqdm(video_files[:1]):
-        maps = np.zeros((1, config.CLIP_SIZE, 25, 3))
-        for index in range(1):
+    for file in tqdm(video_files[100:101]):
+        # maps = np.zeros((1, config.CLIP_SIZE, 25, 3))
+        # for index in range(1):
             # print(index)
-            maps[index, :, :, :] = preprocess_video_to_frame(
-                video_path=file,
-                output_shape=(215, 215), slice_index=index, clip_size=config.CLIP_SIZE)
+        maps = preprocess_video_to_st_maps(
+            video_path=file,
+            output_shape=(180, 180), clip_size=config.CLIP_SIZE)
 
         file_name = file.split('/')[-1].split('.')[0]
         folder_name = file.split('/')[-2]
@@ -143,97 +187,101 @@ def get_spatio_temporal_map():
     # return maps
 
 
-def preprocess_video_to_frame(video_path, output_shape, slice_index, clip_size):
-    cap = cv2.VideoCapture(video_path)
-    frameRate = cap.get(5)  # frame rate
+def preprocess_video_to_st_maps(video_path, output_shape, clip_size):
+    frames, frameRate, sliding_window_stride = get_frames_and_video_meta_data(video_path)
+
+    num_frames = frames.shape[0]
+    num_maps = int((num_frames - clip_size)/sliding_window_stride + 1)
+    maps = np.zeros((num_maps, config.CLIP_SIZE, 25, 3))
+    map_index = 0
+
+    # Init scaler and detector
     min_max_scaler = preprocessing.MinMaxScaler()
-    # Initialize frames with zeros
-    frames = np.zeros((clip_size, output_shape[0], output_shape[1], 3))
-    start_frame = slice_index * clip_size
-
-    end_frame = start_frame + clip_size
     detector = get_haarcascade()
+    eye_detector = get_eye_cascade()
 
-    # 25 needs to be a variable
-    spatio_temporal_map = np.zeros((clip_size, 25, 3))
+    for start_frame_index in tqdm(range(0, num_frames, sliding_window_stride)):
+        end_frame_index = start_frame_index + clip_size
+        if end_frame_index > 3000:
+            break
+        # print(f"start_idx: {start_frame_index} | end_idx: {end_frame_index}")
+        spatio_temporal_map = np.zeros((clip_size, 25, 3))
 
-    '''
-       Preprocess the Image
-       Step 1: Use cv2 face detector based on Haar cascades
-       Step 2: Crop the frame based on the face co-ordinates (we need to do 160%)
-       Step 3: Downsample the face cropped frame to output_shape = 36x36
-   '''
-    # frame counter is our zero indexed counter for monitoring clip_size
-    frame_counter = 0
-    while cap.isOpened():
-        curr_frame_id = int(cap.get(1))  # current frame number
-        ret, frame = cap.read()
+        frames_in_clip = frames[start_frame_index:end_frame_index]
 
-        if start_frame <= curr_frame_id < end_frame:
-            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            faces = detector.detectMultiScale(frame)
-            # We expect only one face
-            # if len(faces) is not 0:
-            #     (x, y, w, d) = faces[0]
-            # else:
-            (x, y, w, d) = (308, 189, 215, 215)
-            # overlay rectangle as per detected face.
-            # cv2.rectangle(frame, (x, y), (x + w, y + d), (255, 255, 255), 2)
-            frame_cropped = frame[y:(y + d), x:(x + w)]
+        for idx, frame in enumerate(frames_in_clip):
+            '''
+               Preprocess the Image
+               Step 1: Use cv2 face detector based on Haar cascades
+               Step 2: Crop the frame based on the face co-ordinates (we need to do 160%)
+               Step 3: Downsample the face cropped frame to output_shape = 36x36
+           '''
+            faces = detector.detectMultiScale(frame, 1.3, 5)
+            if len(faces) is not 0:
+                (x, y, w, d) = faces[0]
+                frame_cropped = frame[y:(y + d), x:(x + w)]
+                eyes = eye_detector.detectMultiScale(frame_cropped, 1.2, 3)
+                if len(eyes) > 0:
+                    # for having the same radius in both eyes
+                    (eye_x, eye_y, eye_w, eye_h) = eyes[0]
+                    eye_radius = (eye_w + eye_h) // 5
+                    mask = np.ones(frame_cropped.shape[:2], dtype="uint8")
+                    for (ex, ey, ew, eh) in eyes[:2]:
+                        eye_center = (ex + ew // 2, ey + eh // 2)
+                        # if eye_radius
+                        cv2.circle(mask, eye_center, eye_radius, 0, -1)
+                        # eh = int(0.8*eh)
+                        # ew = int(0.8*ew)
+                        # cv2.rectangle(mask, (ex, ey), (ex+ew, ey+eh), 0, -1)
 
-            # frame_resized = np.zeros((output_shape[0], output_shape[1], 3))
+                    frame_masked = cv2.bitwise_and(frame_cropped, frame_cropped, mask=mask)
+                else:
+                    frame_masked = frame_cropped
+                    # plot_image(frame_masked)
+            else:
+                # The problemis that this doesn't get cropped :/
+                # (x, y, w, d) = (308, 189, 215, 215)
+                # frame_masked = frame[y:(y + d), x:(x + w)]
 
-            if not ret:
-                break
+                # print("face detection failed, image frame will be masked")
+                mask = np.zeros(frame.shape[:2], dtype="uint8")
+                frame_masked = cv2.bitwise_and(frame, frame, mask=mask)
+                # plot_image(frame_masked)
 
-            window_name = 'image'
-            # Downsample to 36x36 using bicubic interpolation and rename cropped frame to frame
+            # frame_cropped = frame[y:(y + d), x:(x + w)]
+
             try:
-                # frame_resized = cv2.resize(frame_cropped, output_shape, interpolation=cv2.INTER_CUBIC)
-                frame_resized = cv2.cvtColor(frame_cropped, cv2.COLOR_BGR2YUV)
+                frame_resized = cv2.resize(frame_masked, output_shape, interpolation=cv2.INTER_CUBIC)
+                frame_resized = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2YUV)
 
             except:
                 print('\n--------- ERROR! -----------\nUsual cv empty error')
                 print(f'Shape of img1: {frame.shape}')
                 # print(f'bbox: {bbox}')
-                print(f'This is at idx: {curr_frame_id}')
+                print(f'This is at idx: {idx}')
                 exit(666)
 
-            # filename = f"framess{frame_count}.jpg"
-            # plot_image(frame_resized)
             roi_blocks = chunkify(frame_resized)
             for block_idx, block in enumerate(roi_blocks):
-                # plot_image(block)
                 avg_pixels = cv2.mean(block)
-                spatio_temporal_map[frame_counter, block_idx, 0] = avg_pixels[0]
-                spatio_temporal_map[frame_counter, block_idx, 1] = avg_pixels[1]
-                spatio_temporal_map[frame_counter, block_idx, 2] = avg_pixels[2]
+                spatio_temporal_map[idx, block_idx, 0] = avg_pixels[0]
+                spatio_temporal_map[idx, block_idx, 1] = avg_pixels[1]
+                spatio_temporal_map[idx, block_idx, 2] = avg_pixels[2]
 
-            frames[frame_counter, :, :, :] = frame_resized
-            frame_counter += 1
-        else:
-            # ignore frames outside the clip
-            pass
+        for block_idx in range(spatio_temporal_map.shape[1]):
+            # Not sure about uint8
+            fn_scale_0_255 = lambda x: (x * 255.0).astype(np.uint8)
+            scaled_channel_0 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 0].reshape(-1, 1))
+            spatio_temporal_map[:, block_idx, 0] = fn_scale_0_255(scaled_channel_0.flatten())
+            scaled_channel_1 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 1].reshape(-1, 1))
+            spatio_temporal_map[:, block_idx, 1] = fn_scale_0_255(scaled_channel_1.flatten())
+            scaled_channel_2 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 2].reshape(-1, 1))
+            spatio_temporal_map[:, block_idx, 2] = fn_scale_0_255(scaled_channel_2.flatten())
 
-        # Necessary to break the outer while
-        # Breaks when we have read the clip b/w start_frame till end_frame
-        if frame_counter == (end_frame-start_frame):
-            break
-    # plot_image(spatio_temporal_map)
-    for block_idx in range(spatio_temporal_map.shape[1]):
-        # Not sure about uint8
-        fn_scale_0_255 = lambda x: (x * 255.0).astype(np.uint8)
-        scaled_channel_0 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 0].reshape(-1, 1))
-        spatio_temporal_map[:, block_idx, 0] = fn_scale_0_255(scaled_channel_0.flatten())
-        scaled_channel_1 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 1].reshape(-1, 1))
-        spatio_temporal_map[:, block_idx, 1] = fn_scale_0_255(scaled_channel_1.flatten())
-        scaled_channel_2 = min_max_scaler.fit_transform(spatio_temporal_map[:, block_idx, 2].reshape(-1, 1))
-        spatio_temporal_map[:, block_idx, 2] = fn_scale_0_255(scaled_channel_2.flatten())
+        maps[map_index, :, :, :] = spatio_temporal_map
+        map_index += 1
 
-
-    cap.release()
-    plot_image(spatio_temporal_map)
-    return spatio_temporal_map
+    return maps
 
 
 def get_ppg_channel(x):
@@ -291,14 +339,17 @@ def calculate_hr(signal_data, timestamps=None):
 
 
 def make_csv():
-    video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")
+    # video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")
+    video_file_paths = glob.glob("/Users/anweshcr7/thesis/src/data/vipl_npy/*.npy")
     video_files = []
+
     for path in video_file_paths:
         split_by_path = path.split('/')
         video_file = os.path.join(split_by_path[-2], split_by_path[-1])
         video_files.append(video_file)
 
-    num_folds = 3
+    video_files = [x for x in video_files if "source4" not in x]
+    num_folds = 5
     kf = model_selection.KFold(n_splits=num_folds)
 
     col_names = ['video', 'set', 'iteration']
@@ -313,9 +364,51 @@ def make_csv():
         fold += 1
 
         df = pd.concat([df, trainDF, validateDF])
-        df.to_csv(config.SAVE_CSV_PATH, index=False)
+        df.to_csv("VIPL_npy.csv", index=False)
 
     return
+
+
+def make_csv_with_frame_rate():
+    # video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")
+    video_file_paths = glob.glob("/Users/anweshcr7/thesis/src/data/vipl_npy/*.npy")
+    video_source = "/Volumes/Backup Plus/vision/vipl_videos"
+    video_files = []
+    fr_dict = {}
+
+    for path in video_file_paths:
+        split_by_path = path.split('/')
+        video_file = os.path.join(split_by_path[-2], split_by_path[-1])
+        video_files.append(video_file)
+        video_name = split_by_path[-1].split('.')[0] + ".avi"
+        cap = cv2.VideoCapture(os.path.join(video_source, video_name))
+        frameRate = cap.get(5)
+        fr_dict[video_file] = frameRate
+        cap.release()
+
+
+    video_files = [x for x in video_files if "source4" not in x]
+    num_folds = 5
+    kf = model_selection.KFold(n_splits=num_folds)
+
+    col_names = ['video', 'set', 'iteration', 'fps']
+    df = pd.DataFrame(columns=col_names)
+
+    fold = 1
+    for train_idx, validation_idx in kf.split(video_files):
+        trainDF = pd.DataFrame([video_files[idx] for idx in train_idx], columns=['video'])
+        validateDF = pd.DataFrame([video_files[idx] for idx in validation_idx], columns=['video'])
+        trainDF[['set', 'iteration']] = 'T', fold
+        validateDF[['set', 'iteration']] = 'V', fold
+        trainDF[['fps']] = [fr_dict[video_files[idx]] for idx in train_idx]
+        validateDF[['fps']] = [fr_dict[video_files[idx]] for idx in validation_idx]
+        fold += 1
+
+        df = pd.concat([df, trainDF, validateDF])
+        df.to_csv("VIPL_npy_with_fps.csv", index=False)
+
+    return
+
 
 
 if __name__ == '__main__':
@@ -345,5 +438,5 @@ if __name__ == '__main__':
     # #
     # print(calculate_hr(resampled[0], resampled_sample_rate))
 
-    # make_csv()
+    make_csv_with_frame_rate()
     print('done')
