@@ -29,9 +29,9 @@ class RhythmNet(nn.Module):
         self.fc = nn.Linear(10, 10)
 
     def forward(self, st_maps, target):
-        output_per_clip = []
+        batched_output_per_clip = []
         # so as to reflect a batch_size = 1
-        st_maps = st_maps.unsqueeze(0)
+        # st_maps = st_maps.unsqueeze(0)
         for t in range(st_maps.size(1)):
             # with torch.no_grad():
             x = self.resnet18(st_maps[:, t, :, :, :])
@@ -40,17 +40,17 @@ class RhythmNet(nn.Module):
             # output dim: BSx1
             x = self.fc_resnet(x)
             # normalize by frame-rate
-            x = x*50
-            # For now since we're working with BS = 1, lets collapse that dimension
-            output_per_clip.append(x.squeeze(0))
+            x = x*50.0
+            batched_output_per_clip.append(x.squeeze(0))
             # input should be (seq_len, batch, input_size)
 
-        output_seq = torch.stack(output_per_clip, dim=0).transpose_(0, 1)
-        gru_output, h_n = self.rnn(output_seq.unsqueeze(1))
+        output_seq = torch.stack(batched_output_per_clip, dim=0).transpose_(0, 1)
+        # gru_output, h_n = self.rnn(output_seq.unsqueeze(1))
 
-        fc_out = self.fc(gru_output.flatten())
-
-        return output_seq, gru_output.squeeze(0), fc_out
+        # fc_out = self.fc(gru_output.flatten())
+        #
+        # return output_seq, gru_output.squeeze(0), fc_out
+        return output_seq
 
     def name(self):
         return "RhythmNet"

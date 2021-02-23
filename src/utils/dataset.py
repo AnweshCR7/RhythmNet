@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 from PIL import ImageFile
 from torch.utils.data import Dataset
-from utils.data_parser import preprocess_video_to_frame, read_target_data, calculate_hr
+from utils.data_parser import read_target_data, calculate_hr, get_hr_data
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -16,8 +16,8 @@ class DataLoaderRhythmNet(Dataset):
     # The data is now the SpatioTemporal Maps instead of videos
 
     def __init__(self, st_maps_path, target_signal_path):
-        self.H = 125
-        self.W = 125
+        self.H = 180
+        self.W = 180
         self.C = 3
         # self.video_path = data_path
         self.st_maps_path = st_maps_path
@@ -42,14 +42,17 @@ class DataLoaderRhythmNet(Dataset):
     def __getitem__(self, index):
         # identify the name of the video file so as to get the ground truth signal
         self.video_file_name = self.st_maps_path[index].split('/')[-1].split('.')[0]
-        targets, timestamps = read_target_data(self.target_path, self.video_file_name)
+        # targets, timestamps = read_target_data(self.target_path, self.video_file_name)
         # sampling rate is video fps (check)
-        target_hr = [calculate_hr(targets, timestamps=timestamps)]
 
         # Load the maps for video at 'index'
         self.maps = np.load(self.st_maps_path[index])
-        shape = self.maps.shape
-        self.maps = self.maps.reshape((-1, shape[3], shape[1], shape[2]))
+        map_shape = self.maps.shape
+        self.maps = self.maps.reshape((-1, map_shape[3], map_shape[1], map_shape[2]))
+
+        # target_hr = calculate_hr(targets, timestamps=timestamps)
+        # target_hr = calculate_hr_clip_wise(map_shape[0], targets, timestamps=timestamps)
+        target_hr = get_hr_data(self.video_file_name)
 
         return {
             "st_maps": torch.tensor(self.maps, dtype=torch.float),

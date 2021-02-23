@@ -10,7 +10,7 @@ def train_fn(model, data_loader, optimizer, loss_fn):
     loss = 0.0
 
     target_hr_list = []
-    predicted_list = []
+    predicted_hr_list = []
     tk_iterator = tqdm(data_loader, total=len(data_loader))
     for data in tk_iterator:
         # an item of the data is available as a dictionary
@@ -20,15 +20,20 @@ def train_fn(model, data_loader, optimizer, loss_fn):
         optimizer.zero_grad()
         with torch.set_grad_enabled(True):
             outputs = model(**data)
-            # loss = loss_fn(out.squeeze(1), data["target"])
-            loss = loss_fn(outputs, data["target"])
+            # w/o GRU
+            loss = loss_fn(outputs.squeeze(2), data["target"])
+            # loss = loss_fn(outputs, data["target"])
             loss.backward()
             optimizer.step()
-        target_hr_list.append(data["target"].item())
-        predicted_list.append(outputs[2].mean().item())
+        # "For each face video, the avg of all HR (bpm) of individual clips are computed as the final HR result
+        target_hr_batch = list(data["target"].mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+        target_hr_list.extend(target_hr_batch)
+
+        predicted_hr_batch = list(outputs.squeeze(2).mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+        predicted_hr_list.extend(predicted_hr_batch)
         fin_loss += loss.item()
 
-    return target_hr_list, predicted_list, fin_loss / len(data_loader)
+    return target_hr_list, predicted_hr_list, fin_loss / len(data_loader)
 
 
 def eval_fn(model, data_loader, loss_fn):
@@ -43,11 +48,16 @@ def eval_fn(model, data_loader, loss_fn):
                 data[key] = value.to(config.DEVICE)
 
             # with torch.set_grad_enabled(False):
-            _, _, out = model(**data)
-            # loss = loss_fn(out, data["target"])
+            outputs = model(**data)
+            # _, _, out = model(**data)
+            loss = loss_fn(outputs.squeeze(2), data["target"])
             # _, batch_preds = torch.max(out.data, 1)
-            # fin_loss += loss.item()
-            predicted_list.append(out.mean().item())
-            target_hr_list.append(data["target"].item())
+            fin_loss += loss.item()
+            target_hr_batch = list(data["target"].mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+            target_hr_list.extend(target_hr_batch)
 
-        return target_hr_list, predicted_list
+            predicted_hr_batch = list(outputs.squeeze(2).mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+            predicted_list.extend(predicted_hr_batch)
+
+
+        return target_hr_list, predicted_list, fin_loss / len(data_loader)
