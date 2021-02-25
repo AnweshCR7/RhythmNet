@@ -26,10 +26,10 @@ def train_fn(model, data_loader, optimizer, loss_fn):
             loss.backward()
             optimizer.step()
         # "For each face video, the avg of all HR (bpm) of individual clips are computed as the final HR result
-        target_hr_batch = list(data["target"].mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+        target_hr_batch = list(data["target"].mean(dim=1, keepdim=True).squeeze(1).detach().cpu().numpy())
         target_hr_list.extend(target_hr_batch)
 
-        predicted_hr_batch = list(outputs.squeeze(2).mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+        predicted_hr_batch = list(outputs.squeeze(2).mean(dim=1, keepdim=True).squeeze(1).detach().cpu().numpy())
         predicted_hr_list.extend(predicted_hr_batch)
         fin_loss += loss.item()
 
@@ -53,10 +53,10 @@ def eval_fn(model, data_loader, loss_fn):
             loss = loss_fn(outputs.squeeze(2), data["target"])
             # _, batch_preds = torch.max(out.data, 1)
             fin_loss += loss.item()
-            target_hr_batch = list(data["target"].mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+            target_hr_batch = list(data["target"].mean(dim=1, keepdim=True).squeeze(1).detach().cpu().numpy())
             target_hr_list.extend(target_hr_batch)
 
-            predicted_hr_batch = list(outputs.squeeze(2).mean(dim=1, keepdim=True).squeeze(1).detach().numpy())
+            predicted_hr_batch = list(outputs.squeeze(2).mean(dim=1, keepdim=True).squeeze(1).detach().cpu().numpy())
             predicted_list.extend(predicted_hr_batch)
 
 
