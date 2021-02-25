@@ -3,7 +3,7 @@ import io
 import numpy as np
 import PIL.Image
 from torchvision.transforms import ToTensor
-import src.config as config
+import config as config
 # from utils.read_data import plot_signal
 import matplotlib.pyplot as plt
 
@@ -74,8 +74,8 @@ def bland_altman_plot(data1, data2, plot_path=None, tb=False):
         return buf
 
     else:
-        plt.show()
-        # fig.savefig(plot_path + f'/bland-altman_new.png', dpi=fig.dpi)
+        # plt.show()
+        fig.savefig(plot_path + f'/bland-altman_new.png', dpi=fig.dpi)
 
 
 def create_plot_for_tensorboard(plot_name, data1, data2):

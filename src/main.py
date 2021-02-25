@@ -115,7 +115,7 @@ def run_training():
         # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                      video_files_train["video"].values]
 
-        # video_files_train = video_files_train[:16]
+        # video_files_test = video_files_train[:16]
         # print(f"Reading Current File: {video_files_train[0]}")
 
         # --------------------------------------
@@ -159,8 +159,8 @@ def run_training():
         # train_loss = 0.0
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
-            # if k == 1:
-            #     break
+            if k == 1:
+                break
             target_hr_list, predicted_hr_list, train_loss = engine_vipl.train_fn(model, train_loader, optimizer, loss_fn)
 
             # Save model with final train loss (script to save the best weights?)
@@ -225,7 +225,8 @@ def run_training():
             dataset=test_set,
             batch_size=config.BATCH_SIZE,
             num_workers=config.NUM_WORKERS,
-            shuffle=False
+            shuffle=False,
+            collate_fn=collate_fn
         )
         print('\nEvaluation DataLoader constructed successfully!')
 
@@ -234,7 +235,7 @@ def run_training():
         eval_loss_per_epoch = []
         for epoch in range(config.EPOCHS_TEST):
             # validation
-            target_hr_list, predicted_hr_list, test_loss = engine.eval_fn(model, test_loader, loss_fn)
+            target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
 
             # truth_hr_list.append(target)
             # estimated_hr_list.append(predicted)
@@ -243,7 +244,7 @@ def run_training():
                 writer.add_scalar(f"Train/{metric}", metrics[metric], epoch)
 
             print(f"\nFinished Test [Epoch: {epoch + 1}/{config.EPOCHS_TEST}]",
-                  "\nTest Loss: {:.3f} |".format(np.mean(train_loss_per_epoch)),
+                  "\nTest Loss: {:.3f} |".format(test_loss),
                   "HR_MAE : {:.3f} |".format(metrics["MAE"]),
                   "HR_RMSE : {:.3f} |".format(metrics["RMSE"]),)
 
