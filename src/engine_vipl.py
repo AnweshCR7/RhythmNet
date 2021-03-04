@@ -40,7 +40,7 @@ def train_fn(model, data_loader, optimizer, loss_fn):
 
 
 def eval_fn(model, data_loader, loss_fn):
-    # model.eval()
+    model.eval()
     fin_loss = 0
     target_hr_list = []
     predicted_hr_list = []

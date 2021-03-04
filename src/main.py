@@ -18,6 +18,7 @@ from models.rhythmNet import RhythmNet
 from loss_func.rhythmnet_loss import RhythmNetLoss
 from scipy.stats.stats import pearsonr
 
+
 # Needed in VIPL dataset where each data item has a different number of frames/maps
 def collate_fn(batch):
     batched_st_map, batched_targets = [], []
@@ -26,6 +27,7 @@ def collate_fn(batch):
     #     batched_targets.append(data["target"])
     # # torch.stack(batched_output_per_clip, dim=0).transpose_(0, 1)
     return batch
+
 
 def rmse(l1, l2):
 
@@ -81,14 +83,13 @@ def run_training():
     model.to(config.DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    #     optimizer, factor=0.8, patience=5, verbose=True
-    # )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, factor=0.8, patience=5, verbose=True
+    )
     loss_fn = nn.L1Loss()
     # loss_fn = RhythmNetLoss()
 
     testset = trainset = None
-    # st_maps = glob.glob(config.ST_MAPS_PATH + '*.npy')
 
     # Initialize SummaryWriter object
     writer = SummaryWriter()
@@ -115,7 +116,7 @@ def run_training():
         # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                      video_files_train["video"].values]
 
-        # video_files_test = video_files_train[:16]
+        video_files_train = video_files_train[:32]
         # print(f"Reading Current File: {video_files_train[0]}")
 
         # --------------------------------------
@@ -156,11 +157,10 @@ def run_training():
         # -----------------------------
 
         train_loss_per_epoch = []
-        # train_loss = 0.0
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
-            if k == 1:
-                break
+            # if k == 1:
+            #     break
             target_hr_list, predicted_hr_list, train_loss = engine_vipl.train_fn(model, train_loader, optimizer, loss_fn)
 
             # Save model with final train loss (script to save the best weights?)
