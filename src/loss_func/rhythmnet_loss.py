@@ -1,7 +1,7 @@
 import torch.nn as nn
 import numpy as np
 import torch
-import src.config as config
+import config as config
 from loss_func.custom_loss import MyLoss
 
 

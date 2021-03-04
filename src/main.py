@@ -6,6 +6,7 @@ import pandas as pd
 import torch.nn as nn
 from tqdm import tqdm
 import engine
+import engine_vipl
 import config
 from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import DataLoaderRhythmNet
@@ -18,6 +19,16 @@ from loss_func.rhythmnet_loss import RhythmNetLoss
 from scipy.stats.stats import pearsonr
 
 
+# Needed in VIPL dataset where each data item has a different number of frames/maps
+def collate_fn(batch):
+    batched_st_map, batched_targets = [], []
+    # for data in batch:
+    #     batched_st_map.append(data["st_maps"])
+    #     batched_targets.append(data["target"])
+    # # torch.stack(batched_output_per_clip, dim=0).transpose_(0, 1)
+    return batch
+
+
 def rmse(l1, l2):
 
     return np.sqrt(np.mean((l1-l2)**2))
@@ -25,7 +36,7 @@ def rmse(l1, l2):
 
 def mae(l1, l2):
 
-    return np.mean([abs(item1-item2)for item1,item2 in zip(l1, l2)])
+    return np.mean([abs(item1-item2)for item1, item2 in zip(l1, l2)])
 
 
 def compute_criteria(target_hr_list, predicted_hr_list):
@@ -72,14 +83,13 @@ def run_training():
     model.to(config.DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    #     optimizer, factor=0.8, patience=5, verbose=True
-    # )
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, factor=0.8, patience=5, verbose=True
+    )
     loss_fn = nn.L1Loss()
     # loss_fn = RhythmNetLoss()
 
     testset = trainset = None
-    # st_maps = glob.glob(config.ST_MAPS_PATH + '*.npy')
 
     # Initialize SummaryWriter object
     writer = SummaryWriter()
@@ -95,12 +105,18 @@ def run_training():
         video_files_test = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'V')]
         video_files_train = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'T')]
 
-        # Get paths from filtered DF
-        video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
+        # Get paths from filtered DF VIPL
+        video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
                             video_files_test["video"].values]
-        video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
+        video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
                              video_files_train["video"].values]
-        # video_files_train = video_files_train
+
+        # video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
+        #                     video_files_test["video"].values]
+        # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
+        #                      video_files_train["video"].values]
+
+        video_files_train = video_files_train[:32]
         # print(f"Reading Current File: {video_files_train[0]}")
 
         # --------------------------------------
@@ -113,7 +129,8 @@ def run_training():
             dataset=train_set,
             batch_size=config.BATCH_SIZE,
             num_workers=config.NUM_WORKERS,
-            shuffle=False
+            shuffle=False,
+            collate_fn=collate_fn
         )
         print('\nTrain DataLoader constructed successfully!')
 
@@ -140,12 +157,11 @@ def run_training():
         # -----------------------------
 
         train_loss_per_epoch = []
-        # train_loss = 0.0
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
             # if k == 1:
             #     break
-            target_hr_list, predicted_hr_list, train_loss = engine.train_fn(model, train_loader, optimizer, loss_fn)
+            target_hr_list, predicted_hr_list, train_loss = engine_vipl.train_fn(model, train_loader, optimizer, loss_fn)
 
             # Save model with final train loss (script to save the best weights?)
             if checkpointed_loss != 0.0:
@@ -173,7 +189,7 @@ def run_training():
                   # "Pearsonr : {:.3f} |".format(metrics["Pearson"]), )
 
             train_loss_per_epoch.append(train_loss)
-            writer.add_scalar("Loss/train", train_loss, epoch)
+            writer.add_scalar("Loss/train", train_loss, epoch+1)
 
             # Plots on tensorboard
             ba_plot_image = create_plot_for_tensorboard('bland_altman', target_hr_list, predicted_hr_list)
@@ -186,6 +202,21 @@ def run_training():
         print(f"Avg Training Loss: {np.mean(mean_loss)} for {config.EPOCHS} epochs")
         writer.flush()
 
+        # --------------------------------------
+        # Load checkpointed model (if  present)
+        # --------------------------------------
+        if config.DEVICE == "cpu":
+            load_on_cpu = True
+        else:
+            load_on_cpu = False
+        model, optimizer, checkpointed_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer,
+                                                                                          checkpoint_path,
+                                                                                          load_on_cpu=load_on_cpu)
+        if checkpoint_flag:
+            print(f"Checkpoint Found! Loading from checkpoint :: LOSS={checkpointed_loss}")
+        else:
+            print("Checkpoint Not Found! Training from beginning")
+
         # -----------------------------
         # Start Validation
         # -----------------------------
@@ -194,7 +225,8 @@ def run_training():
             dataset=test_set,
             batch_size=config.BATCH_SIZE,
             num_workers=config.NUM_WORKERS,
-            shuffle=False
+            shuffle=False,
+            collate_fn=collate_fn
         )
         print('\nEvaluation DataLoader constructed successfully!')
 
@@ -203,7 +235,7 @@ def run_training():
         eval_loss_per_epoch = []
         for epoch in range(config.EPOCHS_TEST):
             # validation
-            target_hr_list, predicted_hr_list, test_loss = engine.eval_fn(model, test_loader, loss_fn)
+            target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
 
             # truth_hr_list.append(target)
             # estimated_hr_list.append(predicted)
@@ -212,7 +244,7 @@ def run_training():
                 writer.add_scalar(f"Train/{metric}", metrics[metric], epoch)
 
             print(f"\nFinished Test [Epoch: {epoch + 1}/{config.EPOCHS_TEST}]",
-                  "\nTest Loss: {:.3f} |".format(np.mean(train_loss_per_epoch)),
+                  "\nTest Loss: {:.3f} |".format(test_loss),
                   "HR_MAE : {:.3f} |".format(metrics["MAE"]),
                   "HR_RMSE : {:.3f} |".format(metrics["RMSE"]),)
 

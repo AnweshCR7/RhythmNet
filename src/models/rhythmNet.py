@@ -30,8 +30,9 @@ class RhythmNet(nn.Module):
 
     def forward(self, st_maps, target):
         batched_output_per_clip = []
-        # so as to reflect a batch_size = 1
-        # st_maps = st_maps.unsqueeze(0)
+
+        # Need to have so as to reflect a batch_size = 1 // if batched then comment out
+        st_maps = st_maps.unsqueeze(0)
         for t in range(st_maps.size(1)):
             # with torch.no_grad():
             x = self.resnet18(st_maps[:, t, :, :, :])
@@ -40,7 +41,7 @@ class RhythmNet(nn.Module):
             # output dim: BSx1
             x = self.fc_resnet(x)
             # normalize by frame-rate
-            x = x*50.0
+            x = x*25.0
             batched_output_per_clip.append(x.squeeze(0))
             # input should be (seq_len, batch, input_size)
 
