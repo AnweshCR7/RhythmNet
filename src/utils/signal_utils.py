@@ -7,7 +7,7 @@ from scipy import signal
 import heartpy as hp
 from tqdm import tqdm
 import src.config as config
-import video2st_maps
+import utils.video2st_maps as video2st_maps
 import matplotlib.pyplot as plt
 
 

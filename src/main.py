@@ -98,12 +98,12 @@ def run_training():
     folds_df = pd.read_csv(config.SAVE_CSV_PATH)
 
     # Loop for enumerating through folds.
-    print(f"Details: {len(folds_df['iteration'].unique())} fold training for {config.EPOCHS} Epochs (each video)")
+    print(f"Details: {len(folds_df['fold'].unique())} fold training for {config.EPOCHS} Epochs (each video)")
     # for k in folds_df['iteration'].unique():
     for k in [1]:
         # Filter DF
-        video_files_test = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'V')]
-        video_files_train = folds_df.loc[(folds_df['iteration'] == k) & (folds_df['set'] == 'T')]
+        video_files_test = folds_df.loc[(folds_df['fold'] == k)]
+        video_files_train = folds_df.loc[(folds_df['fold'] != k)]
 
         # Get paths from filtered DF VIPL
         video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
