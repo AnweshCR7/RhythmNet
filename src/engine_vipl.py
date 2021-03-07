@@ -22,10 +22,10 @@ def train_fn(model, data_loader, optimizer, loss_fn):
 
             optimizer.zero_grad()
             with torch.set_grad_enabled(True):
-                outputs = model(**data)
+                outputs, gru_outputs = model(**data)
                 # w/o GRU
-                loss = loss_fn(outputs.squeeze(0), data["target"])
-                # loss = loss_fn(outputs, data["target"])
+                # loss = loss_fn(outputs.squeeze(0), data["target"])
+                loss = loss_fn(outputs.squeeze(0), gru_outputs, data["target"])
                 loss.backward()
                 optimizer.step()
             # "For each face video, the avg of all HR (bpm) of individual clips are computed as the final HR result
@@ -52,16 +52,16 @@ def eval_fn(model, data_loader, loss_fn):
                     data[key] = value.to(config.DEVICE)
 
                 # with torch.set_grad_enabled(False):
-                outputs = model(**data)
-                # _, _, out = model(**data)
-                loss = loss_fn(outputs.squeeze(0), data["target"])
-                # _, batch_preds = torch.max(out.data, 1)
+                outputs, gru_outputs = model(**data)
+                # loss w/o GRU
+                # loss = loss_fn(outputs.squeeze(0), data["target"])
+                # loss with GRU
+                loss = loss_fn(outputs.squeeze(0), gru_outputs, data["target"])
                 fin_loss += loss.item()
                 # target_hr_batch = list(data["target"].mean(dim=1, keepdim=True).squeeze(1).detach().cpu().numpy())
                 target_hr_list.append(data["target"].mean().item())
 
                 # predicted_hr_batch = list(outputs.squeeze(2).mean(dim=1, keepdim=True).squeeze(1).detach().cpu().numpy())
                 predicted_hr_list.append(outputs.squeeze(0).mean().item())
-
 
         return target_hr_list, predicted_hr_list, fin_loss / (len(data_loader)*config.BATCH_SIZE)

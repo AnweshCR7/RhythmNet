@@ -86,8 +86,8 @@ def run_training():
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, factor=0.8, patience=5, verbose=True
     )
-    loss_fn = nn.L1Loss()
-    # loss_fn = RhythmNetLoss()
+    # loss_fn = nn.L1Loss()
+    loss_fn = RhythmNetLoss()
 
     testset = trainset = None
 
@@ -116,7 +116,9 @@ def run_training():
         # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                      video_files_train["video"].values]
 
-        video_files_train = video_files_train[:32]
+        # video_files_train = video_files_train[:32]
+        # video_files_test = video_files_test[:32]
+
         # print(f"Reading Current File: {video_files_train[0]}")
 
         # --------------------------------------
@@ -159,8 +161,8 @@ def run_training():
         train_loss_per_epoch = []
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
-            # if k == 1:
-            #     break
+            if k == 1:
+                break
             target_hr_list, predicted_hr_list, train_loss = engine_vipl.train_fn(model, train_loader, optimizer, loss_fn)
 
             # Save model with final train loss (script to save the best weights?)

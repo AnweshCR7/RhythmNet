@@ -53,7 +53,7 @@ class DataLoaderRhythmNet(Dataset):
         # target_hr = calculate_hr(targets, timestamps=timestamps)
         # target_hr = calculate_hr_clip_wise(map_shape[0], targets, timestamps=timestamps)
         target_hr = get_hr_data(self.video_file_name)
-        # To check the fact taht we dont have number of targets greater than the number of maps
+        # To check the fact that we dont have number of targets greater than the number of maps
         # target_hr = target_hr[:map_shape[0]]
         self.maps = self.maps[:target_hr.shape[0], :, :, :]
         return {

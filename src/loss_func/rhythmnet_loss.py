@@ -14,11 +14,11 @@ class RhythmNetLoss(nn.Module):
         self.custom_loss = MyLoss()
         self.device = config.DEVICE
 
-    def forward(self, outputs, target):
-        frame_rate = 50.0
-        resnet_outputs, gru_outputs, _ = outputs
-        target_array = target.repeat(1, resnet_outputs.shape[1])
-        l1_loss = self.l1_loss(resnet_outputs, target_array)
+    def forward(self, resnet_outputs, gru_outputs, target):
+        frame_rate = 25.0
+        # resnet_outputs, gru_outputs, _ = outputs
+        # target_array = target.repeat(1, resnet_outputs.shape[1])
+        l1_loss = self.l1_loss(resnet_outputs, target)
         smooth_loss_component = self.smooth_loss(gru_outputs)
 
         loss = l1_loss + self.lambd*smooth_loss_component
@@ -27,7 +27,7 @@ class RhythmNetLoss(nn.Module):
     # Need to write backward pass for this loss function
     def smooth_loss(self, gru_outputs):
         smooth_loss = torch.zeros(1)
-        self.gru_outputs_considered = gru_outputs.squeeze(0)[:6]
+        self.gru_outputs_considered = gru_outputs.flatten()
         # hr_mean = self.gru_outputs_considered.mean()
         for hr_t in self.gru_outputs_considered:
             # custom_fn = MyLoss.apply

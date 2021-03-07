@@ -30,6 +30,7 @@
 # lr = 1e-3
 # CLIP_SIZE = 300
 # TENSORBOARD_PATH = HOME_DIR + "/runs/"
+# GRU_TEMPORAL_WINDOW = 6
 
 haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
 eye_cascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_eye.xml"
@@ -54,3 +55,4 @@ IMAGE_WIDTH = 300
 IMAGE_HEIGHT = 75
 NUM_WORKERS = 0
 DEVICE = "cpu"
+GRU_TEMPORAL_WINDOW = 6
