@@ -1,4 +1,4 @@
-# RhythmNet
+# RhythmNet: End-to-end Heart Rate Estimation from Face via Spatial-temporal Representation
 A reproduction of the RhythmNet model. [Paper link](arxiv.org/abs/1910.11515)
 
 #### Dataset:
