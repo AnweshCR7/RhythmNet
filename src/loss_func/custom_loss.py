@@ -53,7 +53,7 @@ class MyLoss(torch.autograd.Function):
 
         output = (1/ctx.T - 1)*torch.sign(ctx.hr_mean - hr_t) + output
 
-        return grad_output*output, None, None
+        return output, None, None
 
 
 # if __name__ == '__main__':
