@@ -243,7 +243,7 @@ def run_training():
             # estimated_hr_list.append(predicted)
             metrics = compute_criteria(target_hr_list, predicted_hr_list)
             for metric in metrics.keys():
-                writer.add_scalar(f"Train/{metric}", metrics[metric], epoch)
+                writer.add_scalar(f"Test/{metric}", metrics[metric], epoch)
 
             print(f"\nFinished Test [Epoch: {epoch + 1}/{config.EPOCHS_TEST}]",
                   "\nTest Loss: {:.3f} |".format(test_loss),
