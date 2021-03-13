@@ -41,27 +41,27 @@ class RhythmNet(nn.Module):
             # collapse dimensions to BSx512 (resnet o/p)
             x = x.view(x.size(0), -1)
             # Unsqueeze for sequence length
-            # if t == 0:
-            #     gru_output, h_n = self.rnn(x.unsqueeze(1))
-            # else:
-            #     gru_output, h_n = self.rnn(x.unsqueeze(1), h_n)
+            if t == 0:
+                gru_output, h_n = self.rnn(x.unsqueeze(1))
+            else:
+                gru_output, h_n = self.rnn(x.unsqueeze(1), h_n)
             # output dim: BSx1 and Squeeze sequence length after completing GRU step
-            # x = self.fc_resnet(gru_output.squeeze(1))
+            x = self.fc_resnet(gru_output.squeeze(1))
             # normalize by frame-rate: 25.0 for VIPL
             # x = x*25.0
             batched_output_per_clip.append(x.squeeze(0))
             # input should be (seq_len, batch, input_size)
 
         # the features extracted from the backbone CNN are fed to a one-layer GRU structure.
-        output_seq = torch.stack(batched_output_per_clip, dim=0)
-        gru_output, h_n = self.rnn(output_seq.unsqueeze(1))
-        gru_output = gru_output.squeeze(1)
-        for i in range(gru_output.size(0)):
-            hr = self.fc_resnet(gru_output[i, :])
-            # hr = hr * 25.0
-            hr_per_clip.append(hr)
+        output_seq = torch.stack(batched_output_per_clip, dim=0).permute(1,0)
+        # gru_output, h_n = self.rnn(output_seq.unsqueeze(1))
+        # gru_output = gru_output.squeeze(1)
+        # for i in range(gru_output.size(0)):
+        #     hr = self.fc_resnet(gru_output[i, :])
+        #     # hr = hr * 25.0
+        #     hr_per_clip.append(hr)
 
-        output_seq = torch.stack(hr_per_clip, dim=0).permute(1,0)
+        # output_seq = torch.stack(hr_per_clip, dim=0).permute(1,0)
         # return output_seq, gru_output.squeeze(0), fc_out
         return output_seq, output_seq.squeeze(0)[:6]
 

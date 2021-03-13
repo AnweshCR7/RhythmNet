@@ -1,5 +1,5 @@
 import torch
-
+import config as config
 
 class MyLoss(torch.autograd.Function):
     """
@@ -38,7 +38,7 @@ class MyLoss(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        output = torch.zeros(1)
+        output = torch.zeros(1).to(config.DEVICE)
 
         hr_t, = ctx.saved_tensors
         hr_outs = ctx.hr_outs

@@ -26,7 +26,7 @@ class RhythmNetLoss(nn.Module):
 
     # Need to write backward pass for this loss function
     def smooth_loss(self, gru_outputs):
-        smooth_loss = torch.zeros(1)
+        smooth_loss = torch.zeros(1).to(device=self.device)
         self.gru_outputs_considered = gru_outputs.flatten()
         # hr_mean = self.gru_outputs_considered.mean()
         for hr_t in self.gru_outputs_considered:
