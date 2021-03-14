@@ -24,9 +24,9 @@ class RhythmNet(nn.Module):
         self.resnet18 = nn.Sequential(*modules)
         # The resnet average pool layer before fc
         # self.avgpool = nn.AvgPool2d((10, 1))
-        self.fc_resnet = nn.Linear(512, 1)
-
-        self.rnn = nn.GRU(input_size=512, hidden_size=512, num_layers=1)
+        self.resnet_linear = nn.Linear(512, 1000)
+        self.gru_fc_out = nn.Linear(1000, 1)
+        self.rnn = nn.GRU(input_size=1000, hidden_size=1000, num_layers=1)
         # self.fc = nn.Linear(config.GRU_TEMPORAL_WINDOW, config.GRU_TEMPORAL_WINDOW)
 
     def forward(self, st_maps, target):
@@ -40,28 +40,28 @@ class RhythmNet(nn.Module):
             x = self.resnet18(st_maps[:, t, :, :, :])
             # collapse dimensions to BSx512 (resnet o/p)
             x = x.view(x.size(0), -1)
-            # Unsqueeze for sequence length
-            if t == 0:
-                gru_output, h_n = self.rnn(x.unsqueeze(1))
-            else:
-                gru_output, h_n = self.rnn(x.unsqueeze(1), h_n)
+            # # Unsqueeze for sequence length
+            # if t == 0:
+            #     gru_output, h_n = self.rnn(x.unsqueeze(1))
+            # else:
+            #     gru_output, h_n = self.rnn(x.unsqueeze(1), h_n)
             # output dim: BSx1 and Squeeze sequence length after completing GRU step
-            x = self.fc_resnet(gru_output.squeeze(1))
+            x = self.resnet_linear(x)
             # normalize by frame-rate: 25.0 for VIPL
             # x = x*25.0
             batched_output_per_clip.append(x.squeeze(0))
             # input should be (seq_len, batch, input_size)
 
         # the features extracted from the backbone CNN are fed to a one-layer GRU structure.
-        output_seq = torch.stack(batched_output_per_clip, dim=0).permute(1,0)
-        # gru_output, h_n = self.rnn(output_seq.unsqueeze(1))
+        output_seq = torch.stack(batched_output_per_clip, dim=0)
+        gru_output, h_n = self.rnn(output_seq.unsqueeze(1))
         # gru_output = gru_output.squeeze(1)
-        # for i in range(gru_output.size(0)):
-        #     hr = self.fc_resnet(gru_output[i, :])
+        for i in range(gru_output.size(0)):
+            hr = self.gru_fc_out(gru_output[i, :, :])
         #     # hr = hr * 25.0
-        #     hr_per_clip.append(hr)
+            hr_per_clip.append(hr.flatten())
 
-        # output_seq = torch.stack(hr_per_clip, dim=0).permute(1,0)
+        output_seq = torch.stack(hr_per_clip, dim=0).permute(1,0)
         # return output_seq, gru_output.squeeze(0), fc_out
         return output_seq, output_seq.squeeze(0)[:6]
 
