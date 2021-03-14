@@ -23,8 +23,9 @@ class RhythmNet(nn.Module):
         self.resnet18 = nn.Sequential(*modules)
         # The resnet average pool layer before fc
         # self.avgpool = nn.AvgPool2d((10, 1))
-        self.fc_resnet = nn.Linear(512, 1)
-
+        self.resnet_linear = nn.Linear(512, 1000)
+        # Fully connected layer to regress the o/p of resnet -> 1 HR per clip
+        self.fc_regression = nn.Linear(1000, 1)
         self.rnn = nn.GRU(input_size=10, hidden_size=10)
         self.fc = nn.Linear(10, 10)
 
@@ -39,7 +40,8 @@ class RhythmNet(nn.Module):
             # collapse dimensions to BSx512 (resnet o/p)
             x = x.view(x.size(0), -1)
             # output dim: BSx1
-            x = self.fc_resnet(x)
+            x = self.resnet_linear(x)
+            x = self.fc_regression(x)
             # normalize by frame-rate
             x = x*25.0
             batched_output_per_clip.append(x.squeeze(0))

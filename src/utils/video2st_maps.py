@@ -2,7 +2,7 @@ import cv2
 import os
 import glob
 import numpy as np
-import src.config as config
+import config as config
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 # used for accessing url to download files
