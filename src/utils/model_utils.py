@@ -35,14 +35,18 @@ def save_model_checkpoint(model, optimizer, loss, checkpoint_path):
     print('Saved!')
 
 
-def load_model_if_checkpointed(model, optimizer, checkpoint_path):
+def load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=False):
     loss = 0.0
     checkpoint_flag = False
 
     # check if checkpoint exists
     if os.path.exists(os.path.join(checkpoint_path, "running_model.pt")):
         checkpoint_flag = True
-        checkpoint = torch.load(os.path.join(checkpoint_path, "running_model.pt"))
+        if load_on_cpu:
+            checkpoint = torch.load(os.path.join(checkpoint_path, "running_model.pt"), map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(os.path.join(checkpoint_path, "running_model.pt"))
+
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         # epoch = checkpoint['epoch']
