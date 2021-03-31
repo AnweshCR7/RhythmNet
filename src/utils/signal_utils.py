@@ -3,11 +3,12 @@ import glob
 import numpy as np
 import pandas as pd
 import torch
+import h5py
 from scipy import signal
 import heartpy as hp
 from tqdm import tqdm
 import config as config
-import utils.video2st_maps as video2st_maps
+# import utils.video2st_maps as video2st_maps
 import matplotlib.pyplot as plt
 
 
@@ -60,32 +61,41 @@ def find_nearest(array, value):
 def compute_hr_for_rhythmnet():
     data_files = glob.glob(config.TARGET_SIGNAL_DIR + "*.csv")
     # for file in tqdm(data_files):
-    for file in tqdm(data_files[:1]):
-        file = '/Users/anweshcr7/Downloads/CleanerPPG/VIPL-HR/Cleaned/p41_v7_source2.csv'
+    for file in tqdm(data_files):
+        # file = '/Users/anweshcr7/Downloads/CleanerPPG/VIPL-HR/Cleaned/p41_v7_source2.csv'
         signal_df = pd.read_csv(file)
         signal_data, timestamps, peak_data = signal_df["Signal"].values, signal_df["Time"].values, signal_df["Peaks"].values
-        video_path = config.FACE_DATA_DIR + f"{file.split('/')[-1].split('.')[0]}.avi"
-        video_meta_data = video2st_maps.get_frames_and_video_meta_data(video_path, meta_data_only=True)
+        npy_path = config.FACE_DATA_DIR + f"{file.split('/')[-1].split('.')[0].split(' ')[0]}.npy"
+        if os.path.exists(npy_path):
+            frames = np.load(npy_path)
+        else:
+            continue
+        # frames = db['frames']
+        # video_meta_data = video2st_maps.get_frames_and_video_meta_data(video_path, meta_data_only=True)
         # hr_segmentwise = hp.process_segmentwise(signal_df["Signal"].values, sample_rate=128, segment_width=10, segment_overlap=0.951)
         # hr_segmentwise = hr_segmentwise[1]["bpm"]
         # plt.plot(np.arange(len(hr_segmentwise)), hr_segmentwise)
         # plt.show()
-        npy_path = f"{config.ST_MAPS_PATH}{file.split('/')[-1].split('.')[0]}.npy"
-        if os.path.exists(npy_path):
-            video_meta_data["num_maps"] = np.load(f"{config.ST_MAPS_PATH}{file.split('/')[-1].split('.')[0]}.npy").shape[0]
-        else:
-            continue
+        video_meta_data = {"sliding_window_stride": 15, "frame_rate": 30, "num_maps": len(frames)}
+        # npy_path = f"{config.ST_MAPS_PATH}{file.split('/')[-1].split('.')[0]}.npy"
+        # if os.path.exists(npy_path):
+        #     video_meta_data["num_maps"] = np.load(f"{config.ST_MAPS_PATH}{file.split('/')[-1].split('.')[0]}.npy").shape[0]
+        # else:
+        #     continue
+
         hr = np.asarray(calculate_hr_clip_wise(timestamps, signal_df, video_meta_data), dtype="float32")
         file_name = file.split("/")[-1].split(".")[0].split(" ")[0]
         hr_df = pd.DataFrame(hr, columns=["hr_bpm"])
-        hr_df.to_csv(f"../data/hr_csv/{file_name}.csv", index=False)
+        hr_df.to_csv(f"../data/ecg_hr_csv/{file_name}.csv", index=False)
         # print("eheee")
 
 
 # Function to compute and store the HR values as csv (HR values measured clip-wise i.e. per st_map per video)
 def calculate_hr_clip_wise(timestamps=None, signal_df=None, video_meta_data=None):
 
+    # calculate the sliding window size in time domain i.e. milliseconds
     sliding_window_stride = int((video_meta_data["sliding_window_stride"]/video_meta_data["frame_rate"])*1000)
+    # calculate the size of the sliding window in time domain -> seconds
     sliding_window_size_frame = int((config.CLIP_SIZE/video_meta_data["frame_rate"]))
     # convert to milliseconds
     sliding_window_size = sliding_window_size_frame * 1000
@@ -158,12 +168,12 @@ def calculate_hr(signal_data, timestamps=None):
 if __name__ == '__main__':
     compute_hr_for_rhythmnet()
 
-    files = glob.glob(config.HR_DATA_PATH+"/*.csv")
-    for file in files:
-        hr = get_hr_data(file.split('/')[-1].split('.')[0])
-        if type(hr) == np.object_:
-            print(file)
-        try:
-            torch.tensor(hr, dtype=torch.float)
-        except:
-            print(file)
+    # files = glob.glob(config.HR_DATA_PATH+"/*.csv")
+    # for file in files:
+    #     hr = get_hr_data(file.split('/')[-1].split('.')[0])
+    #     if type(hr) == np.object_:
+    #         print(file)
+    #     try:
+    #         torch.tensor(hr, dtype=torch.float)
+    #     except:
+    #         print(file)
