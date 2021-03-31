@@ -12,43 +12,47 @@ def preprocess_file_name(file_path):
     return os.path.join("vipl_npy", f"{preprocessed_file_name}.npy")
 
 
-def make_csv(fold_data_dict):
+def make_csv():
     # video_file_paths = glob.glob(config.ST_MAPS_PATH + "/**/*.npy")
 
 
-    # video_file_paths = glob.glob("/Users/anweshcr7/thesis/src/data/vipl_npy/*.npy")
-    # video_files = []
-    #
-    # for path in video_file_paths:
-    #     split_by_path = path.split('/')
-    #     video_file = os.path.join(split_by_path[-2], split_by_path[-1])
-    #     video_files.append(video_file)
-    #
+    video_file_paths = glob.glob("./data/ecg_h5/*.h5")
+    # video_file_paths = glob.glob("../data/ecg_parsed/*.h5")
+    video_files = []
+    persons = []
+
+    for path in video_file_paths:
+        split_by_path = path.split('/')
+        video_files.append(split_by_path[-1])
+        persons.append(split_by_path[-1].split('_')[0])
+        # video_files.append(video_file)
+    persons = list(set(persons))
     # video_files = [x for x in video_files if "source4" not in x]
-    # num_folds = 5
-    # kf = model_selection.KFold(n_splits=num_folds)
+    num_folds = 5
+    kf = model_selection.KFold(n_splits=num_folds)
 
     col_names = ['video', 'fold']
     df = pd.DataFrame(columns=col_names)
 
     fold = 1
 
-    for idx, fold in enumerate(fold_data_dict.keys()):
+    for idx, fold in enumerate(persons):
         video_files_fold = []
-        fold_subjects = [str(x) for x in fold_data_dict[fold].squeeze(0)]
-        for subject in fold_subjects:
-            video_files_fold.extend(glob.glob(f"/Volumes/Backup Plus/vision/VIPL-HR/data/*/p{subject}/*/*/*.avi"))
+        # fold_subjects = [str(x) for x in fold_data_dict[fold].squeeze(0)]
+        for file in video_files:
+            if fold in file:
+                video_files_fold.append(file)
 
-        # Don't consider NIR videos
-        video_files_fold = [file_path for file_path in video_files_fold if "source4" not in file_path]
-        video_files_fold = [preprocess_file_name(file_path) for file_path in video_files_fold]
+        # # Don't consider NIR videos
+        # video_files_fold = [file_path for file_path in video_files_fold if "source4" not in file_path]
+        # video_files_fold = [preprocess_file_name(file_path) for file_path in video_files_fold]
 
 
         trainDF = pd.DataFrame(video_files_fold, columns=['video'])
         trainDF['fold'] = idx + 1
 
         df = pd.concat([df, trainDF])
-        df.to_csv("VIPL_folds_final.csv", index=False)
+        df.to_csv("./ecg_subject_exclusive_folds.csv", index=False)
 
     print("done")
 
@@ -108,11 +112,11 @@ def make_csv_with_frame_rate():
 
 
 if __name__ == '__main__':
-    fold_data_dict = {}
-    fold_files = glob.glob("/Volumes/Backup Plus/vision/VIPL-HR/fold/*.mat")
-    for fold in fold_files:
-        name = fold.split('/')[-1].split('.')[0]
-        fold_data = scipy.io.loadmat(fold)
-        fold_data_dict[name] = fold_data[name]
-    make_csv(fold_data_dict)
+    # fold_data_dict = {}
+    # fold_files = glob.glob("/Volumes/Backup Plus/vision/VIPL-HR/fold/*.mat")
+    # for fold in fold_files:
+    #     name = fold.split('/')[-1].split('.')[0]
+    #     fold_data = scipy.io.loadmat(fold)
+    #     fold_data_dict[name] = fold_data[name]
+    make_csv()
     print("done")
