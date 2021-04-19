@@ -12,9 +12,9 @@ Backbone CNN for RhythmNet model is a RestNet-18
 '''
 
 
-class RhythmNet(nn.Module):
+class RhythmNetGRU(nn.Module):
     def __init__(self):
-        super(RhythmNet, self).__init__()
+        super(RhythmNetGRU, self).__init__()
 
         # resnet o/p -> bs x 1000
         # self.resnet18 = resnet18(pretrained=False)

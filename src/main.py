@@ -15,6 +15,7 @@ from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_
 from models.simpleCNN import SimpleCNN
 from models.lenet import LeNet
 from models.rhythmNet import RhythmNet
+from models.rhythmNet_GRU import RhythmNetGRU
 from loss_func.rhythmnet_loss import RhythmNetLoss
 from scipy.stats.stats import pearsonr
 
@@ -64,8 +65,6 @@ def run_training():
     # Initialize Model
     # --------------------------------------
 
-    model = RhythmNet()
-
     if torch.cuda.is_available():
         print('GPU available... using GPU')
         torch.cuda.manual_seed_all(42)
@@ -79,15 +78,15 @@ def run_training():
             print("Output directory is created")
 
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-
+    model = RhythmNet()
     model.to(config.DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, factor=0.8, patience=5, verbose=True
     )
-    # loss_fn = nn.L1Loss()
-    loss_fn = RhythmNetLoss()
+    loss_fn = nn.L1Loss()
+    # loss_fn = RhythmNetLoss()
 
     testset = trainset = None
 
@@ -111,8 +110,8 @@ def run_training():
         video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
                              video_files_train["video"].values]
 
-        video_files_train = [file_path for file_path in video_files_train if "-2" not in file_path]
-        video_files_test = [file_path for file_path in video_files_test if "-2" not in file_path]
+        video_files_train = [file_path for file_path in video_files_train if "-1" in file_path]
+        video_files_test = [file_path for file_path in video_files_test if "-1" in file_path]
 
         # video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                     video_files_test["video"].values]
@@ -164,8 +163,8 @@ def run_training():
         train_loss_per_epoch = []
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
-            # if k == 1:
-            #     break
+            if k == 1:
+                break
             target_hr_list, predicted_hr_list, train_loss = engine_vipl.train_fn(model, train_loader, optimizer, loss_fn)
 
             # Save model with final train loss (script to save the best weights?)
