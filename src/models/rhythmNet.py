@@ -7,6 +7,32 @@ import matplotlib.pyplot as plt
 
 ssl._create_default_https_context = ssl._create_stdlib_context
 
+def plot_image(img):
+    plt.axis("off")
+    plt.imshow(img, origin='upper')
+    plt.show()
+
+
+def plot_filters(filters):
+    # normalize filter values to 0-1 so we can visualize them
+    f_min, f_max = filters.min(), filters.max()
+    filters = (filters - f_min) / (f_max - f_min)
+    n_filters, ix = 3, 1
+    for i in range(n_filters):
+        # get the filter
+        f = filters[i, :, :, :]
+        # plot each channel separately
+        for j in range(3):
+            # specify subplot and turn of axis
+            ax = plt.subplot(n_filters, 3, ix)
+            ax.set_xticks([])
+            ax.set_yticks([])
+            # plot filter channel in grayscale
+            plt.imshow(f.permute(1, 2, 0)[:, :, j], cmap='gray')
+            ix += 1
+
+    plt.show()
+
 
 def plot_activations(activations, square=8, name="plot", limit=3):
     # square = 8
@@ -21,7 +47,9 @@ def plot_activations(activations, square=8, name="plot", limit=3):
             # ax.set_xticks([])
             # ax.set_yticks([])
             # plot filter channel in grayscale
-            plt.imshow(activations[ix, :, :].permute(1,0))
+            plt.imshow(activations[ix, :, :])
+            plt.axis('off')
+            plt.savefig("RN_Activation.png", bbox_inches='tight')
             plt.show()
             ix += 1
             if ix == limit:
@@ -47,6 +75,7 @@ class RhythmNet(nn.Module):
         modules = list(resnet.children())[:-1]
 
         self.resnet18 = nn.Sequential(*modules)
+        self.resnet18[0] = nn.Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         # The resnet average pool layer before fc
         # self.avgpool = nn.AvgPool2d((10, 1))
         self.resnet_linear = nn.Linear(512, 1000)
@@ -62,9 +91,11 @@ class RhythmNet(nn.Module):
         st_maps = st_maps.unsqueeze(0)
         for t in range(st_maps.size(1)):
             # with torch.no_grad():
-            # x = self.resnet18[0](st_maps[:, t, :, :, :])
+            x = self.resnet18[0](st_maps[:, t, :, :, :])
+            f = self.resnet18[0].weight
+            # plot_filters(f)
             # plot_activations(x)
-            x = self.resnet18(st_maps[:, t, :, :, :])
+            x = self.resnet18[1:](x)
             # collapse dimensions to BSx512 (resnet o/p)
             x = x.view(x.size(0), -1)
             # output dim: BSx1
