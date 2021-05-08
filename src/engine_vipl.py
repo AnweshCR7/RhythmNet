@@ -22,8 +22,9 @@ def train_fn(model, data_loader, optimizer, loss_fn):
 
             optimizer.zero_grad()
             with torch.set_grad_enabled(True):
-                outputs, gru_outputs = model(**data)
+                # outputs, gru_outputs = model(**data)
                 # w/o GRU
+                outputs = model(**data)
                 loss = loss_fn(outputs.squeeze(0), data["target"])
                 # with GRU
                 # loss = loss_fn(outputs.squeeze(0), gru_outputs, data["target"])
@@ -53,8 +54,9 @@ def eval_fn(model, data_loader, loss_fn):
                     data[key] = value.to(config.DEVICE)
 
                 # with torch.set_grad_enabled(False):
-                outputs, gru_outputs = model(**data)
-                # loss w/o GRU
+                # outputs, gru_outputs = model(**data)
+                # w/o GRU
+                outputs = model(**data)
                 loss = loss_fn(outputs.squeeze(0), data["target"])
                 # loss with GRU
                 # loss = loss_fn(outputs.squeeze(0), gru_outputs, data["target"])

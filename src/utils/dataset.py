@@ -57,6 +57,6 @@ class DataLoaderRhythmNet(Dataset):
         # target_hr = target_hr[:map_shape[0]]
         self.maps = self.maps[:target_hr.shape[0], :, :, :]
         return {
-            "st_maps": torch.tensor(self.maps, dtype=torch.float),
+            "st_maps": torch.tensor(self.maps, dtype=torch.float).permute(0,1,3,2),
             "target": torch.tensor(target_hr, dtype=torch.float)
         }
