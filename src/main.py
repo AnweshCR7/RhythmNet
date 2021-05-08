@@ -118,8 +118,8 @@ def run_training():
         # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                      video_files_train["video"].values]
 
-        # video_files_train = video_files_train[:32]
-        # video_files_test = video_files_test[:32]
+        video_files_train = video_files_train[:2]
+        video_files_test = video_files_test[:1]
 
         # print(f"Reading Current File: {video_files_train[0]}")
 
@@ -136,6 +136,19 @@ def run_training():
             shuffle=False,
             collate_fn=collate_fn
         )
+
+        # -----------------------------
+        # Start Validation
+        # -----------------------------
+        test_set = DataLoaderRhythmNet(st_maps_path=video_files_test, target_signal_path=config.TARGET_SIGNAL_DIR)
+        test_loader = torch.utils.data.DataLoader(
+            dataset=test_set,
+            batch_size=config.BATCH_SIZE,
+            num_workers=config.NUM_WORKERS,
+            shuffle=False,
+            collate_fn=collate_fn
+        )
+
         print('\nTrain DataLoader constructed successfully!')
 
         # Code to use multiple GPUs (if available)
@@ -193,51 +206,14 @@ def run_training():
                   # "Pearsonr : {:.3f} |".format(metrics["Pearson"]), )
 
             train_loss_per_epoch.append(train_loss)
-            writer.add_scalar("Loss/train", train_loss, epoch+1)
+            writer.add_scalar("Loss/train", train_loss, epoch)
 
             # Plots on tensorboard
             ba_plot_image = create_plot_for_tensorboard('bland_altman', target_hr_list, predicted_hr_list)
             gtvsest_plot_image = create_plot_for_tensorboard('gt_vs_est', target_hr_list, predicted_hr_list)
-            writer.add_image('BA_plot', ba_plot_image, epoch)
-            writer.add_image('gtvsest_plot', gtvsest_plot_image, epoch)
+            writer.add_image('Train/BA_plot', ba_plot_image, epoch)
+            writer.add_image('Train/gtvsest_plot', gtvsest_plot_image, epoch)
 
-        mean_loss = np.mean(train_loss_per_epoch)
-        # Save the mean_loss value for each video instance to the writer
-        print(f"Avg Training Loss: {np.mean(mean_loss)} for {config.EPOCHS} epochs")
-        writer.flush()
-
-        # --------------------------------------
-        # Load checkpointed model (if  present)
-        # --------------------------------------
-        if config.DEVICE == "cpu":
-            load_on_cpu = True
-        else:
-            load_on_cpu = False
-        model, optimizer, checkpointed_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer,
-                                                                                          checkpoint_path,
-                                                                                          load_on_cpu=load_on_cpu)
-        if checkpoint_flag:
-            print(f"Checkpoint Found! Loading from checkpoint :: LOSS={checkpointed_loss}")
-        else:
-            print("Checkpoint Not Found! Training from beginning")
-
-        # -----------------------------
-        # Start Validation
-        # -----------------------------
-        test_set = DataLoaderRhythmNet(st_maps_path=video_files_test, target_signal_path=config.TARGET_SIGNAL_DIR)
-        test_loader = torch.utils.data.DataLoader(
-            dataset=test_set,
-            batch_size=config.BATCH_SIZE,
-            num_workers=config.NUM_WORKERS,
-            shuffle=False,
-            collate_fn=collate_fn
-        )
-        print('\nEvaluation DataLoader constructed successfully!')
-
-        print(f"Finished Training, Validating {len(video_files_test)} video files for {config.EPOCHS_TEST} Epochs")
-
-        eval_loss_per_epoch = []
-        for epoch in range(config.EPOCHS_TEST):
             # validation
             target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
 
@@ -247,27 +223,86 @@ def run_training():
             for metric in metrics.keys():
                 writer.add_scalar(f"Test/{metric}", metrics[metric], epoch)
 
-            print(f"\nFinished Test [Epoch: {epoch + 1}/{config.EPOCHS_TEST}]",
+            print(f"\nFinished Test [Epoch: {epoch + 1}/{config.EPOCHS}]",
                   "\nTest Loss: {:.3f} |".format(test_loss),
                   "HR_MAE : {:.3f} |".format(metrics["MAE"]),
-                  "HR_RMSE : {:.3f} |".format(metrics["RMSE"]),)
+                  "HR_RMSE : {:.3f} |".format(metrics["RMSE"]), )
 
             writer.add_scalar("Loss/test", test_loss, epoch)
 
             # Plots on tensorboard
             ba_plot_image = create_plot_for_tensorboard('bland_altman', target_hr_list, predicted_hr_list)
             gtvsest_plot_image = create_plot_for_tensorboard('gt_vs_est', target_hr_list, predicted_hr_list)
-            writer.add_image('BA_plot', ba_plot_image, epoch)
-            writer.add_image('gtvsest_plot', gtvsest_plot_image, epoch)
+            writer.add_image('Test/BA_plot', ba_plot_image, epoch)
+            writer.add_image('Test/gtvsest_plot', gtvsest_plot_image, epoch)
+
+        mean_loss = np.mean(train_loss_per_epoch)
+        # Save the mean_loss value for each video instance to the writer
+        print(f"Avg Training Loss: {np.mean(mean_loss)} for {config.EPOCHS} epochs")
+        writer.flush()
+        writer.close()
+
+        # # --------------------------------------
+        # # Load checkpointed model (if  present)
+        # # --------------------------------------
+        # if config.DEVICE == "cpu":
+        #     load_on_cpu = True
+        # else:
+        #     load_on_cpu = False
+        # model, optimizer, checkpointed_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer,
+        #                                                                                   checkpoint_path,
+        #                                                                                   load_on_cpu=load_on_cpu)
+        # if checkpoint_flag:
+        #     print(f"Checkpoint Found! Loading from checkpoint :: LOSS={checkpointed_loss}")
+        # else:
+        #     print("Checkpoint Not Found! Training from beginning")
+        #
+        # # -----------------------------
+        # # Start Validation
+        # # -----------------------------
+        # test_set = DataLoaderRhythmNet(st_maps_path=video_files_test, target_signal_path=config.TARGET_SIGNAL_DIR)
+        # test_loader = torch.utils.data.DataLoader(
+        #     dataset=test_set,
+        #     batch_size=config.BATCH_SIZE,
+        #     num_workers=config.NUM_WORKERS,
+        #     shuffle=False,
+        #     collate_fn=collate_fn
+        # )
+        # print('\nEvaluation DataLoader constructed successfully!')
+        #
+        # print(f"Finished Training, Validating {len(video_files_test)} video files for {config.EPOCHS_TEST} Epochs")
+        #
+        # eval_loss_per_epoch = []
+        # for epoch in range(config.EPOCHS_TEST):
+        #     # validation
+        #     target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
+        #
+        #     # truth_hr_list.append(target)
+        #     # estimated_hr_list.append(predicted)
+        #     metrics = compute_criteria(target_hr_list, predicted_hr_list)
+        #     for metric in metrics.keys():
+        #         writer.add_scalar(f"Test/{metric}", metrics[metric], epoch)
+        #
+        #     print(f"\nFinished Test [Epoch: {epoch + 1}/{config.EPOCHS_TEST}]",
+        #           "\nTest Loss: {:.3f} |".format(test_loss),
+        #           "HR_MAE : {:.3f} |".format(metrics["MAE"]),
+        #           "HR_RMSE : {:.3f} |".format(metrics["RMSE"]),)
+        #
+        #     writer.add_scalar("Loss/test", test_loss, epoch)
+        #
+        #     # Plots on tensorboard
+        #     ba_plot_image = create_plot_for_tensorboard('bland_altman', target_hr_list, predicted_hr_list)
+        #     gtvsest_plot_image = create_plot_for_tensorboard('gt_vs_est', target_hr_list, predicted_hr_list)
+        #     writer.add_image('BA_plot', ba_plot_image, epoch)
+        #     writer.add_image('gtvsest_plot', gtvsest_plot_image, epoch)
 
 
         # print(f"Avg Validation Loss: {mean_test_loss} for {config.EPOCHS_TEST} epochs")
-        writer.flush()
+        # writer.flush()
         # plot_train_test_curves(train_loss_data, test_loss_data, plot_path=config.PLOT_PATH, fold_tag=k)
         # Plots on the local storage.
         gt_vs_est(target_hr_list, predicted_hr_list, plot_path=config.PLOT_PATH)
         bland_altman_plot(target_hr_list, predicted_hr_list, plot_path=config.PLOT_PATH)
-        writer.close()
         print("done")
 
 

@@ -6,6 +6,7 @@ from torchvision.transforms import ToTensor
 import config as config
 # from utils.read_data import plot_signal
 import matplotlib.pyplot as plt
+from sklearn.metrics import r2_score
 
 
 def plot_train_test_curves(train_loss_data, test_loss_data, plot_path, fold_tag=1):
@@ -25,19 +26,31 @@ def plot_train_test_curves(train_loss_data, test_loss_data, plot_path, fold_tag=
     fig.savefig(plot_path + f'/loss_fold_{fold_tag}.png', dpi=fig.dpi)
 
 
+# data1:data2 :: target_hr_list, predicted_hr_list
 def gt_vs_est(data1, data2, plot_path=None, tb=False):
     data1 = np.asarray(data1)
     data2 = np.asarray(data2)
+
+    # target hr list
+    min_hr, max_hr = min(data1), max(data1)
+    ticks = int((max_hr - min_hr)/len(data1)) + 1
+    X = np.arange(min_hr, max_hr, ticks)
     # mean = np.mean([data1, data2], axis=0)
     # diff = data1 - data2                   # Difference between data1 and data2
     # md = np.mean(diff)                   # Mean of the difference
     # sd = np.std(diff, axis=0)            # Standard deviation of the difference
 
     fig = plt.figure()
+    ax = fig.add_subplot()
     plt.scatter(data1, data2)
+    plt.plot(X, X, color='red')
     plt.title('true labels vs estimated')
     plt.ylabel('estimated HR')
     plt.xlabel('true HR')
+
+    ax.text(max_hr - ticks, min_hr, "R2: {:.4f}".format(r2_score(data1, data2)), style='italic',
+            bbox={'facecolor': 'red', 'alpha': 0.5, 'pad': 10})
+
     # plt.axhline(md,           color='gray', linestyle='--')
     # plt.axhline(md + 1.96*sd, color='gray', linestyle='--')
     # plt.axhline(md - 1.96*sd, color='gray', linestyle='--')
@@ -49,7 +62,7 @@ def gt_vs_est(data1, data2, plot_path=None, tb=False):
         return buf
 
     else:
-        # plt.show()
+        plt.show()
         fig.savefig(plot_path + f'/true_vs_est.png', dpi=fig.dpi)
 
 
@@ -106,4 +119,4 @@ def create_plot_for_tensorboard(plot_name, data1, data2):
 
 if __name__ == '__main__':
     # plot_signal('data/data_preprocessed', 's22_trial05')
-    gt_vs_est(np.random.random(100), np.random.random(100), plot_path=config.PLOT_PATH)
+    gt_vs_est([60,80,70,90,100,120,140], [65,70,73,91,110,130,137], plot_path=config.PLOT_PATH)
