@@ -72,12 +72,15 @@ class RhythmNet(nn.Module):
         # resnet o/p -> bs x 1000
         # self.resnet18 = resnet18(pretrained=False)
         resnet = models.resnet18(pretrained=False)
+        # resnet = models.resnet50(pretrained=False)
         modules = list(resnet.children())[:-1]
 
         self.resnet18 = nn.Sequential(*modules)
         self.resnet18[0] = nn.Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         # The resnet average pool layer before fc
         # self.avgpool = nn.AvgPool2d((10, 1))
+        # If using renet50, -> 2048
+        # self.resnet_linear = nn.Linear(2048, 1000)
         self.resnet_linear = nn.Linear(512, 1000)
         # Fully connected layer to regress the o/p of resnet -> 1 HR per clip
         self.fc_regression = nn.Linear(1000, 1)
