@@ -94,7 +94,7 @@ def get_eye_cascade():
 
 
 # Function to read the the video data as an array of frames and additionally return metadata like FPS, Dims etc.
-def get_frames_and_video_meta_data(video_path, meta_data_only=False):
+def get_frames_and_video_meta_data(video_path, meta_data_only=False, limit_frames=None):
     cap = cv2.VideoCapture(video_path)
     frameRate = cap.get(5)  # frame rate
 
@@ -102,7 +102,11 @@ def get_frames_and_video_meta_data(video_path, meta_data_only=False):
     frame_dims = (int(cap.get(3)), int(cap.get(4)))
     # Paper mentions a stride of 0.5 seconds = 15 frames
     sliding_window_stride = int(frameRate / 2)
-    num_frames = int(cap.get(7))
+    if limit_frames:
+        num_frames = limit_frames
+    else:
+        num_frames = int(cap.get(7))
+
     if meta_data_only:
         return {"frame_rate": frameRate, "sliding_window_stride": sliding_window_stride, "num_frames": num_frames}
 

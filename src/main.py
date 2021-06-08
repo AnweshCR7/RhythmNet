@@ -7,13 +7,14 @@ import torch.nn as nn
 from tqdm import tqdm
 import engine
 import engine_vipl
+import engine_mapwise
 import config
 from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import DataLoaderRhythmNet
 from utils.plot_scripts import plot_train_test_curves, bland_altman_plot, gt_vs_est, create_plot_for_tensorboard
 from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_checkpoint
 from models.simpleCNN import SimpleCNN
-from models.lenet import LeNet
+from models.rhythmNet_mapwise import RhythmNetMapwise
 from models.rhythmNet import RhythmNet
 from models.rhythmNet_GRU import RhythmNetGRU
 from loss_func.rhythmnet_loss import RhythmNetLoss
@@ -65,9 +66,17 @@ def run_training():
     # Initialize Model
     # --------------------------------------
 
+    model = RhythmNetMapwise()
+    # model = RhythmNet()
+    model = nn.DataParallel(model)
+
+    # Fix random seed for reproducibility
+    np.random.seed(config.RANDOM_SEED)
+    torch.backends.cudnn.deterministic = True
+    torch.manual_seed(config.RANDOM_SEED)
     if torch.cuda.is_available():
         print('GPU available... using GPU')
-        torch.cuda.manual_seed_all(42)
+        torch.cuda.manual_seed_all(config.RANDOM_SEED)
     else:
         print("GPU not available, using CPU")
 
@@ -78,7 +87,6 @@ def run_training():
             print("Output directory is created")
 
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    model = RhythmNet()
     model.to(config.DEVICE)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
@@ -86,6 +94,7 @@ def run_training():
         optimizer, factor=0.8, patience=5, verbose=True
     )
     loss_fn = nn.L1Loss()
+    # loss_fn = nn.parallel.pa(loss_fn)
     # loss_fn = RhythmNetLoss()
 
     testset = trainset = None
@@ -110,18 +119,18 @@ def run_training():
         video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
                              video_files_train["video"].values]
 
-        video_files_train = [file_path for file_path in video_files_train if "-2" in file_path]
-        video_files_test = [file_path for file_path in video_files_test if "-2" in file_path]
+        # video_files_train = [file_path for file_path in video_files_train if "-2" in file_path]
+        # video_files_test = [file_path for file_path in video_files_test if "-2" in file_path]
 
         # video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                     video_files_test["video"].values]
         # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                      video_files_train["video"].values]
 
-        video_files_train = video_files_train[:2]
+        video_files_train = video_files_train[20:26]
         video_files_test = video_files_test[:1]
 
-        # print(f"Reading Current File: {video_files_train[0]}")
+        print(f"Reading Current File: {video_files_train[0]}")
 
         # --------------------------------------
         # Build Dataloaders
@@ -178,7 +187,7 @@ def run_training():
             # short-circuit for evaluation
             # if k == 1:
             #     break
-            target_hr_list, predicted_hr_list, train_loss = engine_vipl.train_fn(model, train_loader, optimizer, loss_fn)
+            target_hr_list, predicted_hr_list, train_loss = engine_mapwise.train_fn(model, train_loader, optimizer, loss_fn)
 
             # Save model with final train loss (script to save the best weights?)
             if checkpointed_loss != 0.0:
@@ -215,7 +224,7 @@ def run_training():
             writer.add_image('Train/gtvsest_plot', gtvsest_plot_image, epoch)
 
             # validation
-            target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
+            target_hr_list, predicted_hr_list, test_loss = engine_mapwise.eval_fn(model, test_loader, loss_fn)
 
             # truth_hr_list.append(target)
             # estimated_hr_list.append(predicted)
@@ -242,51 +251,51 @@ def run_training():
         writer.flush()
         writer.close()
 
-        # # --------------------------------------
-        # # Load checkpointed model (if  present)
-        # # --------------------------------------
-        # if config.DEVICE == "cpu":
-        #     load_on_cpu = True
-        # else:
-        #     load_on_cpu = False
-        # model, optimizer, checkpointed_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer,
-        #                                                                                   checkpoint_path,
-        #                                                                                   load_on_cpu=load_on_cpu)
-        # if checkpoint_flag:
-        #     print(f"Checkpoint Found! Loading from checkpoint :: LOSS={checkpointed_loss}")
-        # else:
-        #     print("Checkpoint Not Found! Training from beginning")
-        #
-        # # -----------------------------
-        # # Start Validation
-        # # -----------------------------
-        # test_set = DataLoaderRhythmNet(st_maps_path=video_files_test, target_signal_path=config.TARGET_SIGNAL_DIR)
-        # test_loader = torch.utils.data.DataLoader(
-        #     dataset=test_set,
-        #     batch_size=config.BATCH_SIZE,
-        #     num_workers=config.NUM_WORKERS,
-        #     shuffle=False,
-        #     collate_fn=collate_fn
-        # )
-        # print('\nEvaluation DataLoader constructed successfully!')
-        #
-        # print(f"Finished Training, Validating {len(video_files_test)} video files for {config.EPOCHS_TEST} Epochs")
-        #
-        # eval_loss_per_epoch = []
-        # for epoch in range(config.EPOCHS_TEST):
-        #     # validation
-        #     target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
-        #
-        #     # truth_hr_list.append(target)
-        #     # estimated_hr_list.append(predicted)
-        #     metrics = compute_criteria(target_hr_list, predicted_hr_list)
-        #     for metric in metrics.keys():
-        #         writer.add_scalar(f"Test/{metric}", metrics[metric], epoch)
-        #
-        #     print(f"\nFinished Test [Epoch: {epoch + 1}/{config.EPOCHS_TEST}]",
-        #           "\nTest Loss: {:.3f} |".format(test_loss),
-        #           "HR_MAE : {:.3f} |".format(metrics["MAE"]),
-        #           "HR_RMSE : {:.3f} |".format(metrics["RMSE"]),)
+        # --------------------------------------
+        # Load checkpointed model (if  present)
+        # --------------------------------------
+        if config.DEVICE == "cpu":
+            load_on_cpu = True
+        else:
+            load_on_cpu = False
+        model, optimizer, checkpointed_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer,
+                                                                                          checkpoint_path,
+                                                                                          load_on_cpu=load_on_cpu)
+        if checkpoint_flag:
+            print(f"Checkpoint Found! Loading from checkpoint :: LOSS={checkpointed_loss}")
+        else:
+            print("Checkpoint Not Found! Training from beginning")
+
+        # -----------------------------
+        # Start Validation
+        # -----------------------------
+        test_set = DataLoaderRhythmNet(st_maps_path=video_files_test, target_signal_path=config.TARGET_SIGNAL_DIR)
+        test_loader = torch.utils.data.DataLoader(
+            dataset=test_set,
+            batch_size=config.BATCH_SIZE,
+            num_workers=config.NUM_WORKERS,
+            shuffle=False,
+            collate_fn=collate_fn
+        )
+        print('\nEvaluation DataLoader constructed successfully!')
+
+        print(f"Finished Training, Validating {len(video_files_test)} video files for {config.EPOCHS_TEST} Epochs")
+
+        eval_loss_per_epoch = []
+        for epoch in range(config.EPOCHS_TEST):
+            # validation
+            target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
+
+            # truth_hr_list.append(target)
+            # estimated_hr_list.append(predicted)
+            metrics = compute_criteria(target_hr_list, predicted_hr_list)
+            for metric in metrics.keys():
+                writer.add_scalar(f"Test/{metric}", metrics[metric], epoch)
+
+            print(f"\nFinished FINAL TEST [Epoch: {epoch + 1}/{config.EPOCHS_TEST}]",
+                  "\nTest Loss: {:.3f} |".format(test_loss),
+                  "HR_MAE : {:.3f} |".format(metrics["MAE"]),
+                  "HR_RMSE : {:.3f} |".format(metrics["RMSE"]),)
         #
         #     writer.add_scalar("Loss/test", test_loss, epoch)
         #

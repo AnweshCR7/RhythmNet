@@ -7,7 +7,7 @@ import h5py
 from scipy import signal
 import heartpy as hp
 from tqdm import tqdm
-import config as config
+import src.config as config
 # import utils.video2st_maps as video2st_maps
 import matplotlib.pyplot as plt
 
@@ -86,7 +86,7 @@ def compute_hr_for_rhythmnet():
         hr = np.asarray(calculate_hr_clip_wise(timestamps, signal_df, video_meta_data), dtype="float32")
         file_name = file.split("/")[-1].split(".")[0].split(" ")[0]
         hr_df = pd.DataFrame(hr, columns=["hr_bpm"])
-        hr_df.to_csv(f"../data/ecg_hr_csv/{file_name}.csv", index=False)
+        hr_df.to_csv(f"../data/pure_hr_csv/{file_name}.csv", index=False)
         # print("eheee")
 
 
