@@ -10,14 +10,18 @@ import engine_vipl
 import config
 from torch.utils.tensorboard import SummaryWriter
 from utils.dataset import DataLoaderRhythmNet
+from utils.estimator_dataset import DataLoaderEstimator
 from utils.plot_scripts import plot_train_test_curves, bland_altman_plot, gt_vs_est, create_plot_for_tensorboard
 from utils.model_utils import plot_loss, load_model_if_checkpointed, save_model_checkpoint
 from models.simpleCNN import SimpleCNN
 from models.lenet import LeNet
 from models.rhythmNet import RhythmNet
+from models.FaceHRNet09V4ELU import FaceHRNet09V4ELU
+from models.SNREstimatorNetMonteCarlo import SNREstimatorNetMonteCarlo
 from models.rhythmNet_GRU import RhythmNetGRU
 from loss_func.rhythmnet_loss import RhythmNetLoss
 from scipy.stats.stats import pearsonr
+from utils.ModelLoader import ModelLoader
 
 
 # Needed in VIPL dataset where each data item has a different number of frames/maps
@@ -79,7 +83,18 @@ def run_training():
 
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
     model = RhythmNet()
-    model.to(config.DEVICE)
+    model_extractor = FaceHRNet09V4ELU()
+    model_extractor.to(config.DEVICE)
+
+    model_estimator = SNREstimatorNetMonteCarlo()
+    # mc_conf = torch.load(os.path.join('_'.join(config.ES_CHECKPOINT.split('_')[:7]) + '_monte-carlo-configuration'))
+    mc_conf = torch.load(os.path.join(config.CHECKPOINT_PATH, config.ESTIMATOR_MF_CONFIG))
+    model_estimator.setup(mc_conf['active_layers'], mc_conf['max_pool_kernel_size'], mc_conf['conv_kernel_size'],
+                          mc_conf['conv_filter_size'])
+    model_estimator.to(config.DEVICE)
+
+    optimizer_extractor = torch.optim.Adam(model_extractor.parameters(), lr=config.lr)
+    optimizer_estimator = torch.optim.Adam(model_extractor.parameters(), lr=config.lr)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -95,42 +110,70 @@ def run_training():
 
     # Read from a pre-made csv file that contains data divided into folds for cross validation
     folds_df = pd.read_csv(config.SAVE_CSV_PATH)
+    # folds_df = pd.read_csv(config.SAVE_CSV_PATH)
+    # path = "/Volumes/Backup Plus/hr_cnn_h5/"
+    # video_paths = glob.glob(f"{path}*.h5")
 
     # Loop for enumerating through folds.
-    print(f"Details: {len(folds_df['fold'].unique())} fold training for {config.EPOCHS} Epochs (each video)")
+    # print(f"Details: {len(folds_df['fold'].unique())} fold training for {config.EPOCHS} Epochs (each video)")
     # for k in folds_df['iteration'].unique():
     for k in [1]:
         # Filter DF
         video_files_train = folds_df.loc[(folds_df['fold'] == k)]
         video_files_test = folds_df.loc[(folds_df['fold'] != k)]
 
-        # Get paths from filtered DF VIPL
-        video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
-                            video_files_test["video"].values]
-        video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
-                             video_files_train["video"].values]
+        video_files_train_extractor = [os.path.join(config.ECG_H5, f"{video_path.split('/')[-1].split('.')}.h5") for video_path in video_files_test["video"].values]
+        video_files_test_extractor = [os.path.join(config.ST_MAPS_PATH, f"{video_path.split('/')[-1].split('.')}.h5") for video_path in video_files_train["video"].values]
 
-        video_files_train = [file_path for file_path in video_files_train if "-2" in file_path]
-        video_files_test = [file_path for file_path in video_files_test if "-2" in file_path]
+        video_files_train_estimator = [os.path.join(config.EXRACTOR_SAVE_DIR, f"{video_path.split('/')[-1].split('.')}.h5")
+                                       for video_path in video_files_test["video"].values]
+        video_files_test_estimator = [os.path.join(config.EXRACTOR_SAVE_DIR, f"{video_path.split('/')[-1].split('.')}.h5")
+                                      for video_path in video_files_train["video"].values]
+
+        # Get paths from filtered DF VIPL
+        # video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
+        #                     video_files_test["video"].values]
+        # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
+        #                      video_files_train["video"].values]
+
+        # video_files_train = [file_path for file_path in video_files_train if "-2" in file_path]
+        # video_files_test = [file_path for file_path in video_files_test if "-2" in file_path]
 
         # video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                     video_files_test["video"].values]
         # video_files_train = [os.path.join(config.ST_MAPS_PATH, video_path) for video_path in
         #                      video_files_train["video"].values]
 
-        video_files_train = video_files_train[:2]
-        video_files_test = video_files_test[:1]
+        video_files_train_extractor = video_files_train_extractor[:2]
+        video_files_test_extractor = video_files_test_extractor[:1]
 
         # print(f"Reading Current File: {video_files_train[0]}")
 
         # --------------------------------------
-        # Build Dataloaders
+        # Build Dataloaders Extractor
         # --------------------------------------
 
-        train_set = DataLoaderRhythmNet(st_maps_path=video_files_train, target_signal_path=config.TARGET_SIGNAL_DIR)
+        extractor_train_set = DataLoaderRhythmNet(st_maps_path=video_files_train_extractor, target_signal_path=config.TARGET_SIGNAL_DIR)
 
-        train_loader = torch.utils.data.DataLoader(
-            dataset=train_set,
+        extractor_train_loader = torch.utils.data.DataLoader(
+            dataset=extractor_train_set,
+            batch_size=config.BATCH_SIZE,
+            num_workers=config.NUM_WORKERS,
+            shuffle=False,
+            collate_fn=collate_fn
+        )
+
+        ex_output_paths = glob.glob(f"{config.EXRACTOR_SAVE_DIR}/*.h5")
+        # eventually, video_files_train_estimator
+        # --------------------------------------
+        # Build Dataloader Estimator
+        # --------------------------------------
+
+        estimation_train_set = DataLoaderEstimator(ex_output_paths=ex_output_paths,
+                                                   target_signal_path=config.TARGET_SIGNAL_DIR)
+
+        estimator_train_loader = torch.utils.data.DataLoader(
+            dataset=estimation_train_set,
             batch_size=config.BATCH_SIZE,
             num_workers=config.NUM_WORKERS,
             shuffle=False,
@@ -138,9 +181,9 @@ def run_training():
         )
 
         # -----------------------------
-        # Start Validation
+        # Start Validation Estimator
         # -----------------------------
-        test_set = DataLoaderRhythmNet(st_maps_path=video_files_test, target_signal_path=config.TARGET_SIGNAL_DIR)
+        test_set = DataLoaderRhythmNet(st_maps_path=video_files_test_estimator, target_signal_path=config.TARGET_SIGNAL_DIR)
         test_loader = torch.utils.data.DataLoader(
             dataset=test_set,
             batch_size=config.BATCH_SIZE,
@@ -154,7 +197,7 @@ def run_training():
         # Code to use multiple GPUs (if available)
         if torch.cuda.device_count() > 1:
             print("Let's use", torch.cuda.device_count(), "GPUs!")
-            model = torch.nn.DataParallel(model)
+            model_extractor = torch.nn.DataParallel(model_extractor)
 
         # --------------------------------------
         # Load checkpointed model (if  present)
@@ -163,22 +206,39 @@ def run_training():
             load_on_cpu = True
         else:
             load_on_cpu = False
-        model, optimizer, checkpointed_loss, checkpoint_flag = load_model_if_checkpointed(model, optimizer, checkpoint_path, load_on_cpu=load_on_cpu)
-        if checkpoint_flag:
-            print(f"Checkpoint Found! Loading from checkpoint :: LOSS={checkpointed_loss}")
-        else:
-            print("Checkpoint Not Found! Training from beginning")
+
+
+        if config.RUN_EXTRACTOR:
+            model_extractor = ModelLoader.load_model(model_extractor, os.path.join(config.CHECKPOINT_PATH, config.EX_CHECKPOINT), 'extractor', config.GPU)
+            engine_vipl.extractor_fn(model_extractor, extractor_train_loader, optimizer_extractor, loss_fn)
+
+        model_estimator = ModelLoader.load_parameters_into_model(model_estimator, os.path.join(config.CHECKPOINT_PATH, config.ES_CHECKPOINT), config.GPU)
+
+        # model_extractor, optimizer_extractor, checkpointed_loss, checkpoint_flag_ex = load_model_if_checkpointed(model_extractor, optimizer_extractor, checkpoint_path, load_on_cpu=load_on_cpu, checkpoint_name=config.EX_CHECKPOINT)
+        # model_estimator, optimizer_estimator, checkpointed_loss, checkpoint_flag_es = load_model_if_checkpointed(model_estimator, optimizer_estimator, checkpoint_path, load_on_cpu=load_on_cpu, checkpoint_name=config.ES_CHECKPOINT)
+
+        # if checkpoint_flag_ex:
+        #     print(f"Checkpoint Found for extractor! Loading from checkpoint :: LOSS={checkpointed_loss}")
+        # else:
+        #     print("Checkpoint Not Found! Training from beginning")
 
         # -----------------------------
         # Start training
         # -----------------------------
+        # We'll save all the results from the extractor
+        # engine_vipl.extractor_fn(model_extractor, train_loader, optimizer_extractor, loss_fn)
 
+        # Initialize CHANGE LATER!
+        checkpointed_loss = 0.0
         train_loss_per_epoch = []
         for epoch in range(config.EPOCHS):
             # short-circuit for evaluation
             # if k == 1:
             #     break
-            target_hr_list, predicted_hr_list, train_loss = engine_vipl.train_fn(model, train_loader, optimizer, loss_fn)
+
+            # Here we need to train the estimator
+            # target_hr_list, predicted_hr_list, fin_loss / (len(data_loader) * config.BATCH_SIZE)
+            target_hr_list, predicted_hr_list, train_loss = engine_vipl.estimator_fn(model_estimator, estimator_train_loader, optimizer_estimator, loss_fn)
 
             # Save model with final train loss (script to save the best weights?)
             if checkpointed_loss != 0.0:

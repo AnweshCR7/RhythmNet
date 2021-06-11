@@ -17,18 +17,18 @@ def plot_image(img):
     plt.show()
 
 
-class DataLoaderRhythmNet(Dataset):
+class DataLoaderEstimator(Dataset):
     """
         Dataset class for RhythmNet
     """
     # The data is now the SpatioTemporal Maps instead of videos
 
-    def __init__(self, st_maps_path, target_signal_path):
+    def __init__(self, ex_output_paths, target_signal_path):
         self.H = 180
         self.W = 180
         self.C = 3
         # self.video_path = data_path
-        self.st_maps_path = st_maps_path
+        self.ex_output_paths = ex_output_paths
         # self.resize = resize
         self.target_path = target_signal_path
         self.maps = None
@@ -45,32 +45,29 @@ class DataLoaderRhythmNet(Dataset):
         # )
 
     def __len__(self):
-        return len(self.st_maps_path)
+        return len(self.ex_output_paths)
 
     def __getitem__(self, index):
         # identify the name of the video file so as to get the ground truth signal
-        self.video_file_name = self.st_maps_path[index].split('/')[-1].split('.')[0]
+        self.video_file_name = self.ex_output_paths[index].split('/')[-1].split('.')[0]
         # targets, timestamps = read_target_data(self.target_path, self.video_file_name)
         # sampling rate is video fps (check)
-        db = h5py.File(self.st_maps_path[index], 'r')
-        frames = db['frames']
+        db = h5py.File(self.ex_output_paths[index], 'r')
+        extractor_out = db['extractor']
 
-        frames = frames[:153,:,:,:]
+        # frames = frames[:153, :, :, :]
         # Load the maps for video at 'index'
         # self.maps = np.load(self.st_maps_path[index])
         # map_shape = self.maps.shape
         # self.maps = self.maps.reshape((-1, map_shape[3], map_shape[1], map_shape[2]))
 
-
-
-        # target_hr = calculate_hr(targets, timestamps=timestamps)
-        # target_hr = calculate_hr_clip_wise(map_shape[0], targets, timestamps=timestamps)
+        # Write a function to get the hr of dims -> num_frames or len(extractor_out)
         target_hr = get_hr_data(self.video_file_name)
         # To check the fact that we dont have number of targets greater than the number of maps
         # target_hr = target_hr[:map_shape[0]]
         # self.maps = self.maps[:target_hr.shape[0], :, :, :]
         return {
             "video_file_name": self.video_file_name,
-            "st_maps": torch.tensor(frames, dtype=torch.float),
+            "input": torch.tensor(extractor_out, dtype=torch.float),
             "target": torch.tensor(target_hr, dtype=torch.float)
         }
