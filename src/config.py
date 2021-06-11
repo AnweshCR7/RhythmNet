@@ -14,10 +14,10 @@
 
 # For INSY server
 
-# FACE_DATA_DIR = "/content/drive/MyDrive/data/deep_phys/face_videos/"
+# # FACE_DATA_DIR = "/content/drive/MyDrive/data/deep_phys/face_videos/"
 # HOME_DIR = "/tudelft.net/staff-bulk/ewi/insy/VisionLab/students/amarwade/"
 # HR_DATA_PATH = HOME_DIR + "data/ECG_Fitness/ecg_hr_csv/"
-# DATA_PATH = HOME_DIR + "data/ECG_Fitness/ecg_st_maps/"
+# DATA_PATH = HOME_DIR + "data/ECG_Fitness/ecg-h5/"
 # TARGET_SIGNAL_DIR = HOME_DIR + "data/DEAP/data_preprocessed/"
 # SAVE_CSV_PATH = HOME_DIR + "RhythmNet/ecg_subject_exclusive_folds.csv"
 # ST_MAPS_PATH = HOME_DIR + "data/ECG_Fitness/ecg_st_maps/"
@@ -27,10 +27,19 @@
 # DEVICE = "cuda"
 # BATCH_SIZE = 16
 # EPOCHS = 20
+# EPOCHS_TEST = 1
 # lr = 1e-3
 # CLIP_SIZE = 300
 # TENSORBOARD_PATH = HOME_DIR + "/runs/"
 # GRU_TEMPORAL_WINDOW = 6
+# EXRACTOR_SAVE_DIR = HOME_DIR + "data/hr_cnn/extractor_out"
+# RUN_EXTRACTOR = True
+# GPU=False
+# # ECG_H5 = "/Volumes/T7/hr_cnn_h5/"
+# CHECKPOINT_NAME = "hr_cnn.pt"
+# EX_CHECKPOINT = "08-05-2018_23-04-07-384974_arch=FaceHRNet09V4ELURGB_lr=1E-05_batch-size=300_fine_tuning_extractor_val_mae_best"
+# ES_CHECKPOINT = "09-05-2018_09-52-57-210538_arch=SNREstimatorNetMonteCarlo_lr=1E-02_batch-size=300_fine-tuning_estimator_val_mae_best"
+# ESTIMATOR_MF_CONFIG = "09-05-2018_09-52-57-210538_arch=SNREstimatorNetMonteCarlo_lr=1E-02_batch-size=300_fine-tuning_monte-carlo-configuration"
 
 haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
 eye_cascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_eye.xml"
