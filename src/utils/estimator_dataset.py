@@ -63,6 +63,8 @@ class DataLoaderEstimator(Dataset):
 
         # Write a function to get the hr of dims -> num_frames or len(extractor_out)
         target_hr = get_hr_data(self.video_file_name)
+        target_hr = np.mean(target_hr).reshape(1,1)
+        # print('hello')
         # To check the fact that we dont have number of targets greater than the number of maps
         # target_hr = target_hr[:map_shape[0]]
         # self.maps = self.maps[:target_hr.shape[0], :, :, :]
