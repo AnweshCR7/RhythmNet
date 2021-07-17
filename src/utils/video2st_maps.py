@@ -3,7 +3,7 @@ import os
 import glob
 import h5py
 import numpy as np
-import config as config
+import src.config as config
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 # used for accessing url to download files
@@ -11,7 +11,7 @@ import urllib.request as urlreq
 from sklearn import preprocessing
 from joblib import Parallel, delayed, parallel_backend
 import time
-import utils.face_alignment as face_alignment
+import src.utils.face_alignment as face_alignment
 import dlib
 
 # download requisite certificates
@@ -94,7 +94,7 @@ def get_eye_cascade():
 
 
 # Function to read the the video data as an array of frames and additionally return metadata like FPS, Dims etc.
-def get_frames_and_video_meta_data(video_path, meta_data_only=False):
+def get_frames_and_video_meta_data(video_path, meta_data_only=False, limit=None):
     cap = cv2.VideoCapture(video_path)
     frameRate = cap.get(5)  # frame rate
 
@@ -103,6 +103,10 @@ def get_frames_and_video_meta_data(video_path, meta_data_only=False):
     # Paper mentions a stride of 0.5 seconds = 15 frames
     sliding_window_stride = int(frameRate / 2)
     num_frames = int(cap.get(7))
+
+    if limit:
+        num_frames = limit
+
     if meta_data_only:
         return {"frame_rate": frameRate, "sliding_window_stride": sliding_window_stride, "num_frames": num_frames}
 
@@ -165,29 +169,38 @@ def get_spatio_temporal_map_threaded_wrapper():
 
 # function for st_map generation from all videos in dataset
 def get_spatio_temporal_map():
-    video_files = glob.glob(config.FACE_DATA_DIR + '*.h5')
+    video_files = glob.glob("/Volumes/T7/ecg_m4v_cam2_proper/*.m4v")
     # video_files = video_files[100:110]
     # video_files = ['/Volumes/Backup Plus/vision/vipl_videos/p10_v1_source1.avi', '/Volumes/Backup Plus/vision/vipl_videos/p10_v1_source2.avi']
     # video_files = ['/Users/anweshcr7/thesis/src/data/ecg_parsed/15_06_c920-1.h5']
+    detection_accuracy = 0.0
     start = time.time()
-    for file in tqdm(video_files[:1]):
-        maps = preprocess_video_to_st_maps(
+    for idx, file in tqdm(enumerate(video_files)):
+        det = get_face_detections(
             video_path=file,
             output_shape=(180, 180), clip_size=config.CLIP_SIZE)
-        if maps is None:
-            continue
-        optimized_end = time.time()
-        # print('{:.4f} s'.format((optimized_end - start)/60))
 
-        file_name = file.split('/')[-1].split('.')[0]
-        folder_name = file.split('/')[-2]
-        # save_path = os.path.join(config.ST_MAPS_PATH, folder_name)
-        save_path = '/Volumes/T7/ecg_st_maps/'
-        # if not os.path.exists(save_path):
-        #     os.makedirs(save_path)
-        save_path = os.path.join(save_path, f"{file_name}.npy")
-        # # np.save(f"{config.ST_MAPS_PATH}{file_name}.npy", maps)
-        np.save(save_path, maps)
+        detection_accuracy += det
+        print(f"detection_accuracy: {detection_accuracy/(idx+1)}")
+
+    print(f"Final detection_accuracy: {detection_accuracy/len(video_files)}")
+
+
+
+        # if maps is None:
+        #     continue
+        # optimized_end = time.time()
+        # # print('{:.4f} s'.format((optimized_end - start)/60))
+        #
+        # file_name = file.split('/')[-1].split('.')[0]
+        # folder_name = file.split('/')[-2]
+        # # save_path = os.path.join(config.ST_MAPS_PATH, folder_name)
+        # save_path = '/Volumes/T7/ecg_st_maps/'
+        # # if not os.path.exists(save_path):
+        # #     os.makedirs(save_path)
+        # save_path = os.path.join(save_path, f"{file_name}.npy")
+        # # # np.save(f"{config.ST_MAPS_PATH}{file_name}.npy", maps)
+        # np.save(save_path, maps)
 
     end = time.time()
     print('{:.4f} s'.format(end - start))
@@ -279,17 +292,49 @@ def preprocess_video_to_st_maps(video_path, output_shape, clip_size):
     return stacked_maps
 
 
+# Optimized function for converting videos to Spatio-temporal maps
+def get_face_detections(video_path, output_shape, clip_size):
+    # db = h5py.File(video_path, 'r')
+    # frames = db['frames']
+    # # Drop the first frame as per paper
+    # frames = frames[1:]
+    # frameRate = db.attrs.get('frame_rate')
+    # sliding_window_stride = int(frameRate / 2)
+    frames, frameRate, sliding_window_stride = get_frames_and_video_meta_data(video_path)
+
+    # Init scaler and detector
+    detector = get_haarcascade()
+    min_max_scaler = preprocessing.MinMaxScaler()
+    detection_count = 0
+    # First we process all the frames and then work with sliding window to save repeated processing for the same frame index
+    for idx, frame in enumerate(frames):
+
+        faces = detector.detectMultiScale(frame, 1.3, 5)
+        if len(faces) is not 0:
+            (x, y, w, d) = faces[0]
+            detection_count += 1
+
+    return detection_count/frames.shape[0]
+
+
+# def get_face_detections():
+
 if __name__ == '__main__':
     # get_frames_and_video_meta_data('/Volumes/T7/vipl_videos/p58_v4_source3.avi')
     # get_spatio_temporal_map()
-    get_spatio_temporal_map_threaded_wrapper()
+    # get_spatio_temporal_map_threaded_wrapper()
+    get_spatio_temporal_map()
     # video_files = glob.glob(config.FACE_DATA_DIR + '/**/*avi')
     # r = list(process_map(get_spatio_temporal_map_threaded, video_files[:2], max_workers=1))
     # signal = read_target_data("/Users/anweshcr7/github/RhythmNet/data/data_preprocessed/", "s01_trial04")
-    #
+
     # resampled = signal.resample(df["Signal"].values, 3000, df["Time"].values)
     # resampled_sample_rate = hp.get_samplerate_mstimer(resampled[1])
     # print(calculate_hr(resampled[0], resampled_sample_rate))
 
     # make_csv_with_frame_rate()
     print('done')
+
+# 0.26322373644
+# 0.30353615463
+# 0.18237578368

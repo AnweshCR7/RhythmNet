@@ -17,7 +17,7 @@
 # # FACE_DATA_DIR = "/content/drive/MyDrive/data/deep_phys/face_videos/"
 # HOME_DIR = "/tudelft.net/staff-bulk/ewi/insy/VisionLab/students/amarwade/"
 # HR_DATA_PATH = HOME_DIR + "data/ECG_Fitness/ecg_hr_csv/"
-# DATA_PATH = HOME_DIR + "data/ECG_Fitness/ecg-h5/"
+# DATA_PATH = HOME_DIR + "data/ECG_Fitness/ecg_h5/"
 # TARGET_SIGNAL_DIR = HOME_DIR + "data/DEAP/data_preprocessed/"
 # SAVE_CSV_PATH = HOME_DIR + "RhythmNet/ecg_subject_exclusive_folds.csv"
 # ST_MAPS_PATH = HOME_DIR + "data/ECG_Fitness/ecg_st_maps/"
@@ -49,28 +49,30 @@ HR_DATA_PATH = "../data/ecg_hr_csv/"
 FACE_DATA_DIR = "/Volumes/T7/ecg_st_maps/"
 TARGET_SIGNAL_DIR = "/Users/anweshcr7/Downloads/CleanerPPG/ECG-Fitness/Cleaned/"
 # SAVE_CSV_PATH = "subject_exclusive_folds.csv"
-SAVE_CSV_PATH = "ecg_all_protocol.csv"
+SAVE_CSV_PATH = "phys_trial_protocol.csv"
 ST_MAPS_PATH = "/Volumes/T7/ecg_st_maps/"
 # ST_MAPS_PATH = "/Volumes/Backup Plus/vision/DEAP_emotion/st_maps/"
 CHECKPOINT_PATH = "../checkpoint"
 # Load point for the estimator
-CHECKPOINT_NAME = "running_model.pt"
+CHECKPOINT_NAME = "trained_estimator.pt"
 EX_CHECKPOINT = "08-05-2018_23-04-07-384974_arch=FaceHRNet09V4ELURGB_lr=1E-05_batch-size=300_fine_tuning_extractor_val_mae_best"
 ES_CHECKPOINT = "09-05-2018_09-52-57-210538_arch=SNREstimatorNetMonteCarlo_lr=1E-02_batch-size=300_fine-tuning_estimator_val_mae_best"
 ESTIMATOR_MF_CONFIG = "09-05-2018_09-52-57-210538_arch=SNREstimatorNetMonteCarlo_lr=1E-02_batch-size=300_fine-tuning_monte-carlo-configuration"
 DATA_PATH = "../data/"
 PLOT_PATH = "../plots"
-BATCH_SIZE = 16
-EPOCHS = 10
+BATCH_SIZE = 4
+EPOCHS = 3
 EPOCHS_TEST = 1
 CLIP_SIZE = 300
 lr = 1e-3
 IMAGE_WIDTH = 300
 IMAGE_HEIGHT = 75
-NUM_WORKERS = 0
+NUM_WORKERS = 1
 DEVICE = "cpu"
 GRU_TEMPORAL_WINDOW = 6
 EXRACTOR_SAVE_DIR = "/Volumes/T7/extractor"
-RUN_EXTRACTOR = True
+RUN_EXTRACTOR = False
 GPU=False
-ECG_H5 = "/Volumes/T7/hr_cnn_h5/"
+ECG_H5 = "/Volumes/T7/phys_h5/"
+TRAIN_ESTIMATOR = False
+SAVE_FACE_DETECTION_DIR = "/Volumes/T7"

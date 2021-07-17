@@ -82,7 +82,7 @@ def run_training():
             print("Output directory is created")
 
     # device = torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
-    model = RhythmNet()
+    # model = RhythmNet()
     model_extractor = FaceHRNet09V4ELU()
     model_extractor.to(config.DEVICE)
 
@@ -96,10 +96,10 @@ def run_training():
     optimizer_extractor = torch.optim.Adam(model_extractor.parameters(), lr=config.lr)
     optimizer_estimator = torch.optim.Adam(model_extractor.parameters(), lr=config.lr)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, factor=0.8, patience=5, verbose=True
-    )
+    # optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    #     optimizer, factor=0.8, patience=5, verbose=True
+    # )
     loss_fn = nn.L1Loss()
     # loss_fn = RhythmNetLoss()
 
@@ -122,13 +122,21 @@ def run_training():
         video_files_train = folds_df.loc[(folds_df['fold'] == k)]
         video_files_test = folds_df.loc[(folds_df['fold'] != k)]
 
-        video_files_train_extractor = [os.path.join(config.ECG_H5, f"{video_path.split('/')[-1].split('.')}.h5") for video_path in video_files_test["video"].values]
-        video_files_test_extractor = [os.path.join(config.ST_MAPS_PATH, f"{video_path.split('/')[-1].split('.')}.h5") for video_path in video_files_train["video"].values]
+        video_files_train_extractor = [os.path.join(config.ECG_H5, f"{video_path.split('/')[-1].split('.')[0]}.h5") for video_path in video_files_train["video"].values]
+        video_files_test_extractor = [os.path.join(config.ECG_H5, f"{video_path.split('/')[-1].split('.')[0]}.h5") for video_path in video_files_test["video"].values]
+        # video_files_train_extractor = ['/Volumes/T7/hr_cnn_h5/00_01_c920-1.h5', '/Volumes/T7/hr_cnn_h5/00_02_c920-2.h5']
+        # video_files_train_extractor = video_files_train_extractor + video_files_test_extractor
+        # video_files_train_extractor = ['/Volumes/T7/phys_h5/phys_h5/01_00.h5', '/Volumes/T7/phys_h5/phys_h5/01_01.h5']
 
-        video_files_train_estimator = [os.path.join(config.EXRACTOR_SAVE_DIR, f"{video_path.split('/')[-1].split('.')}.h5")
+        video_files_train_estimator = [os.path.join(config.EXRACTOR_SAVE_DIR, f"{video_path.split('/')[-1].split('.')[0]}.h5")
                                        for video_path in video_files_test["video"].values]
-        video_files_test_estimator = [os.path.join(config.EXRACTOR_SAVE_DIR, f"{video_path.split('/')[-1].split('.')}.h5")
+        video_files_train_estimator = ['/Volumes/T7/extractor/00_01_c920-1.h5', '/Volumes/T7/extractor/00_01_c920-2.h5', '/Volumes/T7/extractor/00_02_c920-1.h5']
+
+        # video_files_train_estimator = ['/Volumes/T7/extractor/00_01_c920-1.h5', '/Volumes/T7/extractor/00_01_c920-2.h5', '/Volumes/T7/extractor/00_02_c920-1.h5']
+        video_files_test_estimator = [os.path.join(config.EXRACTOR_SAVE_DIR, f"{video_path.split('/')[-1].split('.')[0]}.h5")
                                       for video_path in video_files_train["video"].values]
+        video_files_test_estimator = ['/Volumes/T7/extractor/00_01_c920-1.h5', '/Volumes/T7/extractor/00_01_c920-2.h5', '/Volumes/T7/extractor/00_02_c920-1.h5']
+
 
         # Get paths from filtered DF VIPL
         # video_files_test = [os.path.join(config.ST_MAPS_PATH, video_path.split('/')[-1]) for video_path in
@@ -160,16 +168,20 @@ def run_training():
             batch_size=config.BATCH_SIZE,
             num_workers=config.NUM_WORKERS,
             shuffle=False,
-            collate_fn=collate_fn
+            # collate_fn=collate_fn
         )
+        # images, labels = next(iter(extractor_train_loader))
+        # grid = torchvision.utils.make_grid(images)
+        # tb.add_image("images", grid)
+        # tb.add_graph(model, images)
 
-        ex_output_paths = glob.glob(f"{config.EXRACTOR_SAVE_DIR}/*.h5")
+        # ex_output_paths = glob.glob(f"{config.EXRACTOR_SAVE_DIR}/*.h5")
         # eventually, video_files_train_estimator
         # --------------------------------------
         # Build Dataloader Estimator
         # --------------------------------------
 
-        estimation_train_set = DataLoaderEstimator(ex_output_paths=ex_output_paths,
+        estimation_train_set = DataLoaderEstimator(ex_output_paths=video_files_train_estimator,
                                                    target_signal_path=config.TARGET_SIGNAL_DIR)
 
         estimator_train_loader = torch.utils.data.DataLoader(
@@ -183,8 +195,8 @@ def run_training():
         # -----------------------------
         # Start Validation Estimator
         # -----------------------------
-        test_set = DataLoaderRhythmNet(st_maps_path=video_files_test_estimator, target_signal_path=config.TARGET_SIGNAL_DIR)
-        test_loader = torch.utils.data.DataLoader(
+        test_set = DataLoaderEstimator(ex_output_paths=video_files_test_estimator, target_signal_path=config.TARGET_SIGNAL_DIR)
+        estimator_test_loader = torch.utils.data.DataLoader(
             dataset=test_set,
             batch_size=config.BATCH_SIZE,
             num_workers=config.NUM_WORKERS,
@@ -209,10 +221,20 @@ def run_training():
 
 
         if config.RUN_EXTRACTOR:
-            model_extractor = ModelLoader.load_model(model_extractor, os.path.join(config.CHECKPOINT_PATH, config.EX_CHECKPOINT), 'extractor', config.GPU)
-            engine_vipl.extractor_fn(model_extractor, extractor_train_loader, optimizer_extractor, loss_fn)
+            # model_extractor = ModelLoader.load_model(model_extractor, os.path.join(config.CHECKPOINT_PATH, config.EX_CHECKPOINT), 'extractor', config.GPU)
+            for epoch in range(config.EPOCHS):
+                l1, l2, l3 = engine_vipl.train_extractor_fn(model_extractor, extractor_train_loader, optimizer_extractor, loss_fn, extractor_train_set)
 
-        model_estimator = ModelLoader.load_parameters_into_model(model_estimator, os.path.join(config.CHECKPOINT_PATH, config.ES_CHECKPOINT), config.GPU)
+            print(f"\nFinished [Epoch: {epoch + 1}/{config.EPOCHS}]",
+                  "\nTraining Loss: {:.3f} |".format(l1),
+                  "HR_MAE : {:.3f} |".format(l2),
+                  "HR_RMSE : {:.3f} |".format(l3), )
+            # "Pearsonr : {:.3f} |".format(metrics["Pearson"]), )
+
+        # return
+
+        if not config.TRAIN_ESTIMATOR:
+            model_estimator = ModelLoader.load_parameters_into_model(model_estimator, os.path.join(config.CHECKPOINT_PATH, config.ES_CHECKPOINT), config.GPU)
 
         # model_extractor, optimizer_extractor, checkpointed_loss, checkpoint_flag_ex = load_model_if_checkpointed(model_extractor, optimizer_extractor, checkpoint_path, load_on_cpu=load_on_cpu, checkpoint_name=config.EX_CHECKPOINT)
         # model_estimator, optimizer_estimator, checkpointed_loss, checkpoint_flag_es = load_model_if_checkpointed(model_estimator, optimizer_estimator, checkpoint_path, load_on_cpu=load_on_cpu, checkpoint_name=config.ES_CHECKPOINT)
@@ -239,20 +261,20 @@ def run_training():
             # Here we need to train the estimator
             # target_hr_list, predicted_hr_list, fin_loss / (len(data_loader) * config.BATCH_SIZE)
             target_hr_list, predicted_hr_list, train_loss = engine_vipl.estimator_fn(model_estimator, estimator_train_loader, optimizer_estimator, loss_fn)
-
+            #
             # Save model with final train loss (script to save the best weights?)
             if checkpointed_loss != 0.0:
                 if train_loss < checkpointed_loss:
-                    save_model_checkpoint(model, optimizer, train_loss, checkpoint_path)
+                    save_model_checkpoint(model_estimator, optimizer_estimator, train_loss, checkpoint_path, checkpoint_name=config.CHECKPOINT_NAME)
                     checkpointed_loss = train_loss
                 else:
                     pass
             else:
                 if len(train_loss_per_epoch) > 0:
                     if train_loss < min(train_loss_per_epoch):
-                        save_model_checkpoint(model, optimizer, train_loss, checkpoint_path)
+                        save_model_checkpoint(model_estimator, optimizer_estimator, train_loss, checkpoint_path)
                 else:
-                    save_model_checkpoint(model, optimizer, train_loss, checkpoint_path)
+                    save_model_checkpoint(model_estimator, optimizer_estimator, train_loss, checkpoint_path)
 
             metrics = compute_criteria(target_hr_list, predicted_hr_list)
 
@@ -275,7 +297,7 @@ def run_training():
             writer.add_image('Train/gtvsest_plot', gtvsest_plot_image, epoch)
 
             # validation
-            target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model, test_loader, loss_fn)
+            target_hr_list, predicted_hr_list, test_loss = engine_vipl.eval_fn(model_estimator, estimator_test_loader, loss_fn)
 
             # truth_hr_list.append(target)
             # estimated_hr_list.append(predicted)

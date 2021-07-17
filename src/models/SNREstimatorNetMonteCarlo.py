@@ -149,11 +149,12 @@ class SNREstimatorNetMonteCarlo(nn.Module):
             x = nonlin(self.bn_32(self.max_pool1d_32(self.conv_32(F.dropout(x, p=0.3, training=self.training)))))
 
         x = self.conv_last(F.dropout(x, p=0.5, training=self.training))
-
+        to_save = x
+        # return x
         x = self.ada_avg_pool1d(x)
 
         if sum(x.size()[1:]) > x.dim() - 1:
             print(x.size())
             raise ValueError('Check your network idiot!')
 
-        return x
+        return x, to_save

@@ -23,7 +23,7 @@ def plot_loss(train_loss_data, test_loss_data, plot_path):
 
 def save_model_checkpoint(model, optimizer, loss, checkpoint_path, checkpoint_name=None):
     if not checkpoint_name:
-        save_filename = "running_model.pt"
+        save_filename = "trained_estimator.pt"
     else:
         save_filename = checkpoint_name
     # checkpoint_path = os.path.join(checkpoint_path, save_filename)

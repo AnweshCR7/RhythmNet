@@ -56,7 +56,7 @@ class FaceHRNet09V4ELU(nn.Module):
         nn.init.xavier_normal_(self.conv_last.weight, gain=xavier_normal_gain)
 
     def forward(self, x):
-        x = x.permute(0,3,2,1)
+        # x = x.permute(0,3,2,1)
         nonlin = F.elu
 
         x = self.ada_avg_pool2d(x)
