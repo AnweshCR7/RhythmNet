@@ -1,0 +1,21 @@
+haarcascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_frontalface_alt2.xml"
+eye_cascade_url = "https://raw.githubusercontent.com/opencv/opencv/master/data/haarcascades/haarcascade_eye.xml"
+
+HR_DATA_PATH = "../data/VIPL_hr_csv/"
+FACE_DATA_DIR = "/Volumes/T7/vipl_videos/"
+TARGET_SIGNAL_DIR = "/Users/anweshcr7/Downloads/CleanerPPG/VIPL-HR/Cleaned/"
+SAVE_CSV_PATH = "VIPL_npy.csv"
+ST_MAPS_PATH = "../data/vipl_st_maps/"
+CHECKPOINT_PATH = "../checkpoint"
+DATA_PATH = "../data/"
+PLOT_PATH = "../plots"
+BATCH_SIZE = 16
+EPOCHS = 10
+EPOCHS_TEST = 1
+CLIP_SIZE = 300
+lr = 1e-3
+IMAGE_WIDTH = 300
+IMAGE_HEIGHT = 75
+NUM_WORKERS = 0
+DEVICE = "cpu"
+GRU_TEMPORAL_WINDOW = 6
